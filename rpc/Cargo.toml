@@ -1,0 +1,13 @@
+[package]
+name = "ubi-chain-rpc"
+version = "0.1.0"
+edition = "2021"
+authors = ["@santisiri"]
+description = "RPC interface for the UBI Chain"
+
+[dependencies]
+tokio = { version = "1.28", features = ["full"] }
+jsonrpsee = { version = "0.16", features = ["server"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+runtime = { path = "../runtime" } 

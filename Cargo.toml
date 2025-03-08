@@ -4,3 +4,7 @@ members = [
     "runtime",
     "rpc",
 ]
+
+# Remove the [package] and [dependencies] sections since this is just a workspace root
+# The individual crates in the workspace will have their own Cargo.toml files with their
+# specific package info and dependencies
