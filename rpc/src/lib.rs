@@ -12,6 +12,9 @@
 use runtime::Runtime;
 use serde::{Deserialize, Serialize};
 
+// Add Ethereum compatibility module
+pub mod eth_compat;
+
 /// Account information structure returned by RPC queries
 ///
 /// This structure represents the publicly accessible information

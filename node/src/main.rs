@@ -18,6 +18,7 @@ mod p2p;
 use p2p::P2PNetwork;
 use runtime::Runtime;
 use rpc;
+use rpc::eth_compat::EthRpcHandler;
 
 /// Command line arguments for the node
 #[derive(Parser, Debug)]
@@ -48,6 +49,25 @@ struct Args {
     /// Example: P2P port 30333 → RPC port 9933
     #[arg(long)]
     rpc_port: Option<u16>,
+    
+    /// Ethereum JSON-RPC server host address
+    /// Default: 127.0.0.1
+    #[arg(long, default_value = "127.0.0.1")]
+    eth_rpc_host: String,
+
+    /// Ethereum JSON-RPC server port
+    /// Default: 8545 (standard Ethereum RPC port)
+    #[arg(long, default_value = "8545")]
+    eth_rpc_port: u16,
+    
+    /// Chain ID for Ethereum compatibility (EIP-155)
+    /// Default: 1337 (common for private networks)
+    #[arg(long, default_value = "1337")]
+    chain_id: u64,
+    
+    /// Disable Ethereum JSON-RPC server
+    #[arg(long)]
+    disable_eth_rpc: bool,
 }
 
 /// Main entry point for the UBI Chain node
@@ -87,6 +107,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("P2P network will listen on {}:{}", args.p2p_host, args.port);
     info!("RPC server will listen on {}", rpc_addr);
     
+    if !args.disable_eth_rpc {
+        let eth_rpc_addr = format!("{}:{}", args.eth_rpc_host, args.eth_rpc_port);
+        info!("Ethereum JSON-RPC server will listen on {}", eth_rpc_addr);
+    }
+    
     // Construct P2P address from host and port
     trace!("Setting up P2P network...");
     let p2p_addr = format!("{}:{}", args.p2p_host, args.port);
@@ -99,14 +124,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rpc_handler = rpc::RpcHandler::new(runtime);
     debug!("RPC handler initialized successfully");
     
+    // Start the native RPC server
     info!("Launching RPC server...");
+    let rpc_handler_clone = rpc_handler.clone();
     tokio::spawn(async move {
         debug!("Starting RPC server on {}", rpc_addr);
-        if let Err(e) = run_rpc_server(&rpc_addr, rpc_handler).await {
+        if let Err(e) = run_rpc_server(&rpc_addr, rpc_handler_clone).await {
             error!("RPC server error: {}", e);
             error!("RPC server error details: {:?}", e);
         }
     });
+    
+    // Start the Ethereum JSON-RPC server if enabled
+    if !args.disable_eth_rpc {
+        info!("Launching Ethereum JSON-RPC server...");
+        let eth_rpc_addr = format!("{}:{}", args.eth_rpc_host, args.eth_rpc_port);
+        let eth_rpc_handler = EthRpcHandler::new(rpc_handler.clone(), args.chain_id);
+        
+        tokio::spawn(async move {
+            debug!("Starting Ethereum JSON-RPC server on {}", eth_rpc_addr);
+            match eth_rpc_handler.start_server(&eth_rpc_addr) {
+                Ok(server) => {
+                    info!("Ethereum JSON-RPC server started successfully");
+                    // Keep the server running
+                    server.wait();
+                },
+                Err(e) => {
+                    error!("Failed to start Ethereum JSON-RPC server: {:?}", e);
+                }
+            }
+        });
+    }
 
     // Get peers from command line arguments
     let initial_peers = args.peers
