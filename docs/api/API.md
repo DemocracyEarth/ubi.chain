@@ -1,6 +1,50 @@
 # UBI Chain API Documentation
 
+## Overview
+
+UBI Chain provides two main API interfaces:
+1. Native JSON-RPC API for UBI Chain-specific functionality
+2. [Ethereum-compatible JSON-RPC API](ETHEREUM_COMPATIBILITY.md) for wallet integration
+
 ## RPC Endpoints
+
+### Account Management
+
+#### Create Account
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "account_create",
+  "params": ["address"],
+  "id": 1
+}
+```
+
+Response:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "success": true,
+    "account": {
+      "address": "0x123...",
+      "balance": 0,
+      "verified": false
+    }
+  }
+}
+```
+
+#### Get Account Info
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "account_getInfo",
+  "params": ["address"],
+  "id": 1
+}
+```
 
 ### Chain State Queries
 
@@ -111,6 +155,16 @@ ws.onmessage = (event) => {
 };
 ```
 
+## Ethereum Compatibility
+
+UBI Chain provides Ethereum JSON-RPC compatibility for wallet integration. See the [Ethereum Compatibility](ETHEREUM_COMPATIBILITY.md) documentation for details.
+
+Key features:
+- Standard Ethereum JSON-RPC methods
+- Chain ID: 2030
+- Automatic account creation
+- UBI token as native currency
+
 ## Error Codes
 
 | Code | Description |
@@ -121,6 +175,7 @@ ws.onmessage = (event) => {
 | 1004 | Rate limit exceeded |
 | 1005 | Invalid proof |
 | 1006 | Resource unavailable |
+| 1007 | Account creation failed |
 
 ## Rate Limits
 
@@ -134,11 +189,20 @@ ws.onmessage = (event) => {
 - Authentication via signed messages
 - Rate limiting to prevent abuse
 - Input validation for all parameters
+- Ethereum address validation
 
 ## Example Implementation
 
 ```javascript
 const UBIChain = {
+  async createAccount(address) {
+    return await rpcCall('account_create', [address]);
+  },
+
+  async getAccountInfo(address) {
+    return await rpcCall('account_getInfo', [address]);
+  },
+  
   async getBalance(address) {
     return await rpcCall('state_getBalance', [address]);
   },

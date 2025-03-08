@@ -12,6 +12,14 @@ UBI Chain is a blockchain project designed to provide a universal basic income (
 - **runtime**: Core blockchain logic and state management (`ubi-chain-runtime`)
 - **rpc**: JSON-RPC interface for interacting with the blockchain (`ubi-chain-rpc`)
 
+## Features
+
+- **Universal Basic Income**: Distributes UBI tokens to verified human participants
+- **Human Verification**: Ensures only real humans can participate in the network
+- **Ethereum Compatibility**: Connect with standard Ethereum wallets via JSON-RPC API
+- **P2P Networking**: Decentralized node communication for robust network operation
+- **Democratic AI Access**: Fair allocation of AI resources to all participants
+
 ## Getting Started
 
 ### Prerequisites
@@ -46,28 +54,71 @@ cargo build --release
 
 1. Start a development node:
    ```bash
-   cargo run --release --bin ubi-chain-node -- --dev
+   cargo run --release --bin ubi-chain-node -- --port 30333
    ```
 
 2. Start a node with custom configuration:
    ```bash
    cargo run --release --bin ubi-chain-node -- \
-     --base-path /tmp/node01 \
-     --chain local \
      --port 30333 \
-     --ws-port 9945 \
-     --rpc-port 9933
+     --p2p-host 127.0.0.1 \
+     --rpc-host 127.0.0.1 \
+     --chain-id 2030
    ```
+
+3. Enable verbose logging:
+   ```bash
+   RUST_LOG=debug cargo run --release --bin ubi-chain-node -- --port 30333
+   ```
+
+### Running Multiple Nodes
+
+1. First node (Terminal 1):
+   ```bash
+   cargo run --release --bin ubi-chain-node -- --port 30333
+   ```
+
+2. Second node (Terminal 2):
+   ```bash
+   cargo run --release --bin ubi-chain-node -- --port 30334 --peers 127.0.0.1:30333
+   ```
+
+### Ethereum Compatibility
+
+UBI Chain provides Ethereum JSON-RPC compatibility, allowing you to connect standard Ethereum wallets:
+
+1. Start a node with Ethereum RPC enabled:
+   ```bash
+   cargo run --release --bin ubi-chain-node -- --eth-rpc-port 8545 --chain-id 2030
+   ```
+
+2. Connect MetaMask or other Ethereum wallets:
+   - Network Name: UBI Chain
+   - RPC URL: http://localhost:8545
+   - Chain ID: 2030
+   - Currency Symbol: UBI
+
+### Configuration Options
+
+- `--port`: P2P network port (default: 30333)
+- `--p2p-host`: P2P network host (default: 127.0.0.1)
+- `--peers`: Comma-separated list of peer addresses
+- `--rpc-host`: RPC server host (default: 127.0.0.1)
+- `--rpc-port`: RPC server port (default: P2P port - 20400)
+- `--eth-rpc-host`: Ethereum RPC host (default: 127.0.0.1)
+- `--eth-rpc-port`: Ethereum RPC port (default: 8545)
+- `--chain-id`: Chain ID for Ethereum compatibility (default: 2030)
+- `--disable-eth-rpc`: Disable Ethereum JSON-RPC server
 
 ### Interacting with the Chain
 
 1. Using the RPC Interface:
    The RPC interface is provided by the `ubi-chain-rpc` package. You can interact with it using standard HTTP/WebSocket clients.
 
-2. Using Web Interface:
-   - Open https://polkadot.js.org/apps/
-   - Click on the network selector (top left)
-   - Choose "Development" or enter custom endpoint: ws://127.0.0.1:9944
+2. Using Ethereum Wallets:
+   - Open MetaMask or any Ethereum-compatible wallet
+   - Add a custom network with Chain ID 2030
+   - Connect to http://localhost:8545 (or your custom RPC endpoint)
 
 ### Common Operations
 
@@ -78,7 +129,7 @@ cargo build --release
 
 - View logs:
   ```bash
-  tail -f /tmp/node01/log/node.log
+  RUST_LOG=debug cargo run --release --bin ubi-chain-node
   ```
 
 ## Development
@@ -122,6 +173,11 @@ cargo clippy --all-targets --all-features
   1. Check if ports are available
   2. Ensure firewall settings allow connections
   3. Verify WebSocket endpoint is accessible
+
+- For Ethereum wallet connection issues:
+  1. Verify the chain ID is set to 2030
+  2. Ensure the RPC endpoint is accessible
+  3. Check that the Ethereum RPC server is enabled
 
 ## License
 

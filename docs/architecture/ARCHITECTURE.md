@@ -10,6 +10,7 @@ The node component is responsible for:
 - Block production and validation
 - Transaction handling
 - State management
+- Ethereum JSON-RPC compatibility
 
 ### 2. Runtime (`ubi-chain-runtime`)
 The runtime module contains:
@@ -18,6 +19,7 @@ The runtime module contains:
 - Human verification protocols
 - Democratic AI access controls
 - Transaction execution logic
+- Account management
 
 ### 3. RPC (`ubi-chain-rpc`)
 The RPC interface provides:
@@ -25,13 +27,16 @@ The RPC interface provides:
 - Chain state queries
 - Transaction submission
 - Event subscription
+- Ethereum compatibility layer
 
 ## Data Flow
 
 ```mermaid
 graph TD
     A[External Client] --> B[RPC Interface]
+    A2[Ethereum Wallet] --> B2[Ethereum RPC Interface]
     B --> C[Node]
+    B2 --> C
     C --> D[Runtime]
     D --> E[State Storage]
     C --> F[Network Layer]
@@ -46,7 +51,7 @@ graph TD
 - Identity management
 
 ### UBI Distribution
-- Token economics
+- Token economics (UBI token)
 - Distribution algorithms
 - Claim verification
 
@@ -54,6 +59,13 @@ graph TD
 - Resource allocation
 - Voting mechanisms
 - Access control
+
+### Ethereum Compatibility
+- JSON-RPC API implementation
+- Chain ID: 2030
+- Account creation and management
+- Balance queries
+- Transaction handling
 
 ### Security Architecture
 - Cryptographic primitives
@@ -83,6 +95,16 @@ Network communication details:
 - Message types
 - Network topology
 - Peer discovery
+- Node pairing
+
+## Account System
+
+The account system provides:
+- Automatic account creation
+- Balance management
+- UBI token distribution
+- Human verification status
+- Ethereum address compatibility
 
 ## Future Considerations
 
@@ -90,4 +112,5 @@ Planned architectural improvements:
 - Scalability enhancements
 - Cross-chain integration
 - Privacy features
-- Governance mechanisms 
+- Governance mechanisms
+- Enhanced Ethereum compatibility 
