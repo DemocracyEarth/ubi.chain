@@ -8,7 +8,6 @@ use crate::RpcHandler;
 use jsonrpc_core::{Error, Result, Value};
 use jsonrpc_core::futures::future;
 use jsonrpc_http_server::{Server, ServerBuilder};
-use primitive_types::{H256, U256};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::net::SocketAddr;
@@ -103,7 +102,7 @@ impl EthRpcHandler {
         });
 
         // eth_blockNumber - Returns the current block number
-        let handler_clone = handler.clone();
+        let _handler_clone = handler.clone();
         io.add_method("eth_blockNumber", move |_params| {
             // Return a mock block number for now
             // In a real implementation, this would query the actual block height
@@ -136,7 +135,7 @@ impl EthRpcHandler {
         });
 
         // eth_accounts - Returns a list of addresses owned by client
-        let handler_clone = handler.clone();
+        let _handler_clone = handler.clone();
         io.add_method("eth_accounts", move |_params| {
             // Return empty list for now
             // In a real implementation, this would return accounts managed by the node
@@ -151,7 +150,7 @@ impl EthRpcHandler {
         });
 
         // eth_gasPrice - Returns the current price per gas in wei
-        let handler_clone = handler.clone();
+        let _handler_clone = handler.clone();
         io.add_method("eth_gasPrice", move |_params| {
             // Return a fixed gas price for now
             // In a real implementation, this would be dynamic based on network conditions
@@ -159,14 +158,14 @@ impl EthRpcHandler {
         });
 
         // eth_estimateGas - Generates and returns an estimate of how much gas is necessary
-        let handler_clone = handler.clone();
-        io.add_method("eth_estimateGas", move |params: jsonrpc_core::Params| {
+        let _handler_clone = handler.clone();
+        io.add_method("eth_estimateGas", move |_params: jsonrpc_core::Params| {
             // Return a fixed gas estimate for now
             future::ok(Value::String("0x5208".to_string())) // 21000 gas (standard transfer)
         });
 
         // eth_getTransactionCount - Returns the number of transactions sent from an address
-        let handler_clone = handler.clone();
+        let _handler_clone = handler.clone();
         io.add_method("eth_getTransactionCount", move |params: jsonrpc_core::Params| {
             let params: Vec<Value> = params.parse().unwrap_or_default();
             if params.len() < 1 {
@@ -179,14 +178,14 @@ impl EthRpcHandler {
         });
 
         // eth_sendRawTransaction - Creates new message call transaction or a contract creation for signed transactions
-        let handler_clone = handler.clone();
+        let _handler_clone = handler.clone();
         io.add_method("eth_sendRawTransaction", move |params: jsonrpc_core::Params| {
             let params: Vec<Value> = params.parse().unwrap_or_default();
             if params.len() < 1 {
                 return future::err(Error::invalid_params("Missing transaction parameter"));
             }
 
-            let raw_tx = match params[0].as_str() {
+            let _raw_tx = match params[0].as_str() {
                 Some(tx) => tx.to_string(),
                 None => return future::err(Error::invalid_params("Invalid transaction format")),
             };
@@ -199,7 +198,7 @@ impl EthRpcHandler {
         });
 
         // eth_getTransactionReceipt - Returns the receipt of a transaction by transaction hash
-        let handler_clone = handler.clone();
+        let _handler_clone = handler.clone();
         io.add_method("eth_getTransactionReceipt", move |params: jsonrpc_core::Params| {
             let params: Vec<Value> = params.parse().unwrap_or_default();
             if params.len() < 1 {
@@ -212,7 +211,7 @@ impl EthRpcHandler {
         });
 
         // eth_getBlockByNumber - Returns information about a block by block number
-        let handler_clone = handler.clone();
+        let _handler_clone = handler.clone();
         io.add_method("eth_getBlockByNumber", move |params: jsonrpc_core::Params| {
             let params: Vec<Value> = params.parse().unwrap_or_default();
             if params.len() < 1 {
@@ -246,7 +245,7 @@ impl EthRpcHandler {
         });
 
         // eth_getBlockByHash - Returns information about a block by hash
-        let handler_clone = handler.clone();
+        let _handler_clone = handler.clone();
         io.add_method("eth_getBlockByHash", move |params: jsonrpc_core::Params| {
             let params: Vec<Value> = params.parse().unwrap_or_default();
             if params.len() < 1 {
@@ -285,35 +284,35 @@ impl EthRpcHandler {
         });
 
         // eth_call - Executes a new message call immediately without creating a transaction on the block chain
-        let handler_clone = handler.clone();
-        io.add_method("eth_call", move |params: jsonrpc_core::Params| {
+        let _handler_clone = handler.clone();
+        io.add_method("eth_call", move |_params: jsonrpc_core::Params| {
             // Return a placeholder response
             future::ok(Value::String("0x".to_string()))
         });
 
         // eth_getCode - Returns code at a given address
-        let handler_clone = handler.clone();
-        io.add_method("eth_getCode", move |params: jsonrpc_core::Params| {
+        let _handler_clone = handler.clone();
+        io.add_method("eth_getCode", move |_params: jsonrpc_core::Params| {
             // Return empty code for now
             future::ok(Value::String("0x".to_string()))
         });
 
         // eth_getLogs - Returns an array of all logs matching a given filter object
-        let handler_clone = handler.clone();
-        io.add_method("eth_getLogs", move |params: jsonrpc_core::Params| {
+        let _handler_clone = handler.clone();
+        io.add_method("eth_getLogs", move |_params: jsonrpc_core::Params| {
             // Return an empty array for now
             future::ok(Value::Array(vec![]))
         });
 
         // eth_getStorageAt - Returns the value from a storage position at a given address
-        let handler_clone = handler.clone();
-        io.add_method("eth_getStorageAt", move |params: jsonrpc_core::Params| {
+        let _handler_clone = handler.clone();
+        io.add_method("eth_getStorageAt", move |_params: jsonrpc_core::Params| {
             // Return a placeholder storage value
             future::ok(Value::String("0x0".to_string()))
         });
 
         // eth_syncing - Returns an object with data about the sync status or false
-        let handler_clone = handler.clone();
+        let _handler_clone = handler.clone();
         io.add_method("eth_syncing", move |_params| {
             // Return false indicating no sync in progress
             future::ok(Value::Bool(false))
