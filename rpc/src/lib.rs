@@ -1,4 +1,5 @@
-//! RPC interface for the UBI Chain.
+//! RPC implementation for UBI Chain
+
 use runtime::Runtime;
 use serde::{Deserialize, Serialize};
 
@@ -9,14 +10,24 @@ pub struct AccountInfo {
     verified: bool,
 }
 
-pub struct RpcServer {
+pub struct RpcHandler {
     runtime: Runtime,
 }
 
-impl RpcServer {
-    pub fn new(runtime: Runtime) -> Self {
-        RpcServer { runtime }
+impl RpcHandler {
+    pub fn new() -> Self {
+        RpcHandler {
+            runtime: Runtime::new(),
+        }
     }
 
     // TODO: Implement RPC methods for interacting with the runtime
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works() {
+        assert_eq!(2 + 2, 4);
+    }
 } 

@@ -14,5 +14,5 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 # Local dependencies
-runtime = { path = "../runtime" }
-rpc = { path = "../rpc" }
+runtime = { path = "../runtime", package = "ubi-chain-runtime" }
+rpc = { path = "../rpc", package = "ubi-chain-rpc" }

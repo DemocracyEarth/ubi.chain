@@ -1,9 +1,15 @@
 [workspace]
 members = [
-    "node",
     "runtime",
     "rpc",
+    "node"
 ]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Your Name <your.email@example.com>"]
+edition = "2021"
 
 # Remove the [package] and [dependencies] sections since this is just a workspace root
 # The individual crates in the workspace will have their own Cargo.toml files with their

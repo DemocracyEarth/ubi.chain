@@ -1,4 +1,12 @@
-//! Runtime implementation for the UBI Chain.
+//! Runtime implementation for UBI Chain
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works() {
+        assert_eq!(2 + 2, 4);
+    }
+}
 
 /// Represents the state of a user account
 #[derive(Debug)]

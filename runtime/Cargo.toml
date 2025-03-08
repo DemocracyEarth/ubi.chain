@@ -3,7 +3,7 @@ name = "ubi-chain-runtime"
 version = "0.1.0"
 edition = "2021"
 authors = ["@santisiri"]
-description = "Runtime implementation for the UBI Chain"
+description = "Runtime logic for the UBI Chain"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
