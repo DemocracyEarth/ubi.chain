@@ -14,6 +14,7 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use hex;
+use rand;
 
 /// Ethereum-compatible block information
 #[derive(Debug, Serialize, Deserialize)]
@@ -135,11 +136,17 @@ impl EthRpcHandler {
         });
 
         // eth_accounts - Returns a list of addresses owned by client
-        let _handler_clone = handler.clone();
+        let handler_clone = handler.clone();
         io.add_method("eth_accounts", move |_params| {
-            // Return empty list for now
             // In a real implementation, this would return accounts managed by the node
-            future::ok(Value::Array(vec![]))
+            // For now, we'll return a mock account for testing
+            let mock_address = "0x0000000000000000000000000000000000000001";
+            
+            // Create the account if it doesn't exist
+            let _ = handler_clone.rpc_handler.create_account(mock_address.to_string());
+            
+            // Return the account in the list
+            future::ok(Value::Array(vec![Value::String(mock_address.to_string())]))
         });
 
         // net_version - Returns the current network ID
@@ -278,6 +285,56 @@ impl EthRpcHandler {
             future::ok(block)
         });
 
+        // personal_newAccount - Creates a new account
+        let handler_clone = handler.clone();
+        io.add_method("personal_newAccount", move |params: jsonrpc_core::Params| {
+            let params: Vec<Value> = params.parse().unwrap_or_default();
+            
+            // For personal_newAccount, we typically expect a password parameter
+            // However, since we're not implementing full wallet functionality,
+            // we'll just create an account with the provided address or generate one
+            
+            if params.len() < 1 {
+                return future::err(Error::invalid_params("Missing address parameter"));
+            }
+            
+            let address = match params[0].as_str() {
+                Some(addr) => {
+                    // If the address is provided, use it
+                    if addr.starts_with("0x") {
+                        addr.to_string()
+                    } else {
+                        format!("0x{}", addr)
+                    }
+                },
+                None => {
+                    // Generate a random address if none provided
+                    // This is a simplified version - in a real implementation,
+                    // you would generate a proper Ethereum address from a private key
+                    let random_bytes = (0..20).map(|_| rand::random::<u8>()).collect::<Vec<_>>();
+                    format!("0x{}", hex::encode(random_bytes))
+                }
+            };
+            
+            // Create the account in UBI Chain
+            let result = handler_clone.rpc_handler.create_account(address.clone());
+            
+            if result.success {
+                future::ok(Value::String(address))
+            } else {
+                let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
+                future::err(Error::invalid_params(error_msg))
+            }
+        });
+
+        // personal_listAccounts - Lists all accounts
+        let handler_clone = handler.clone();
+        io.add_method("personal_listAccounts", move |_params| {
+            // In a real implementation, this would list all accounts managed by the node
+            // For now, we'll return an empty list
+            future::ok(Value::Array(vec![]))
+        });
+
         // web3_clientVersion - Returns the current client version
         io.add_method("web3_clientVersion", |_params| {
             future::ok(Value::String("UBI-Chain/v0.1.0".to_string()))
@@ -319,8 +376,10 @@ impl EthRpcHandler {
         });
 
         // Start the server
-        ServerBuilder::new(io)
+        let server = ServerBuilder::new(io)
             .start_http(&addr)
-            .map_err(|_| Error::invalid_request())
+            .map_err(|e| Error::invalid_params(format!("Failed to start server: {}", e)))?;
+            
+        Ok(server)
     }
 } 

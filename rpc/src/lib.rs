@@ -9,7 +9,7 @@
 //! - AI resource management
 //! - Network status information
 
-use runtime::Runtime;
+use runtime::{Runtime, Account, AccountError};
 use serde::{Deserialize, Serialize};
 
 // Add Ethereum compatibility module
@@ -43,6 +43,19 @@ pub struct AccountInfo {
     
     /// Whether the account has passed human verification
     verified: bool,
+}
+
+/// Response for account creation
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateAccountResponse {
+    /// Success status
+    success: bool,
+    
+    /// Account information if successful
+    account: Option<AccountInfo>,
+    
+    /// Error message if unsuccessful
+    error: Option<String>,
 }
 
 /// RPC handler for processing external requests
@@ -102,6 +115,54 @@ impl RpcHandler {
         }
     }
 
+    /// Creates a new account with the given address
+    ///
+    /// # Arguments
+    /// * `address` - The Ethereum-compatible address for the new account
+    ///
+    /// # Returns
+    /// CreateAccountResponse with success status and account info or error message
+    ///
+    /// # Example
+    /// ```
+    /// let response = rpc_handler.create_account("0x1234567890abcdef1234567890abcdef12345678".to_string());
+    /// if response.success {
+    ///     println!("Account created successfully");
+    /// } else {
+    ///     println!("Error: {}", response.error.unwrap());
+    /// }
+    /// ```
+    pub fn create_account(&self, address: String) -> CreateAccountResponse {
+        match self.runtime.create_account(&address) {
+            Ok(account) => {
+                let account_info = AccountInfo {
+                    address: account.address,
+                    balance: account.balance,
+                    verified: account.verified,
+                };
+                
+                CreateAccountResponse {
+                    success: true,
+                    account: Some(account_info),
+                    error: None,
+                }
+            },
+            Err(err) => {
+                let error_message = match err {
+                    AccountError::AlreadyExists => "Account already exists".to_string(),
+                    AccountError::InvalidAddress => "Invalid address format".to_string(),
+                    AccountError::Other(msg) => msg,
+                };
+                
+                CreateAccountResponse {
+                    success: false,
+                    account: None,
+                    error: Some(error_message),
+                }
+            }
+        }
+    }
+
     // TODO: Implement additional RPC methods:
     // - submit_transaction(): Submit a new transaction
     // - claim_ubi(): Process UBI claims
@@ -123,5 +184,38 @@ mod tests {
         let info = handler.get_account_info("test_address".to_string());
         assert_eq!(info.balance, 0); // New accounts start with 0 balance
         assert_eq!(info.verified, false); // New accounts start unverified
+    }
+    
+    #[test]
+    fn test_create_account() {
+        let runtime = Runtime::new();
+        let handler = RpcHandler::new(runtime);
+        
+        // Test valid address
+        let valid_address = "0x1234567890abcdef1234567890abcdef12345678";
+        let response = handler.create_account(valid_address.to_string());
+        assert!(response.success);
+        assert!(response.account.is_some());
+        assert!(response.error.is_none());
+        
+        let account_info = response.account.unwrap();
+        assert_eq!(account_info.address, valid_address);
+        assert_eq!(account_info.balance, 0);
+        assert_eq!(account_info.verified, false);
+        
+        // Test duplicate address
+        let duplicate_response = handler.create_account(valid_address.to_string());
+        assert!(!duplicate_response.success);
+        assert!(duplicate_response.account.is_none());
+        assert!(duplicate_response.error.is_some());
+        assert_eq!(duplicate_response.error.unwrap(), "Account already exists");
+        
+        // Test invalid address
+        let invalid_address = "invalid_address";
+        let invalid_response = handler.create_account(invalid_address.to_string());
+        assert!(!invalid_response.success);
+        assert!(invalid_response.account.is_none());
+        assert!(invalid_response.error.is_some());
+        assert_eq!(invalid_response.error.unwrap(), "Invalid address format");
     }
 } 

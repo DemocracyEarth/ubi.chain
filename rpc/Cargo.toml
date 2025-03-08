@@ -16,3 +16,5 @@ primitive-types = "0.12.1"
 jsonrpc-core = "18.0.0"
 jsonrpc-http-server = "18.0.0"
 jsonrpc-core-client = "18.0.0" 
+# Random number generation for address creation
+rand = "0.8.5" 

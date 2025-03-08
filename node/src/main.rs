@@ -244,19 +244,52 @@ async fn run_rpc_server(addr: &str, rpc_handler: rpc::RpcHandler) -> Result<(), 
                             trace!("Received {} bytes from {}", n, peer_addr);
                             if let Ok(request_str) = String::from_utf8(buf[..n].to_vec()) {
                                 debug!("RPC request from {}: {}", peer_addr, request_str);
-                                if request_str.contains("getAccountInfo") {
-                                    trace!("Processing getAccountInfo request");
-                                    let response = handler.get_account_info("example_address".to_string());
-                                    let response_json = serde_json::to_string(&response).unwrap_or_default();
-                                    debug!("Sending response to {}: {}", peer_addr, response_json);
-                                    if let Err(e) = socket.write_all(response_json.as_bytes()).await {
-                                        error!("Failed to write response to {}: {:?}", peer_addr, e);
+                                
+                                // Parse the JSON-RPC request
+                                let response = if let Ok(request) = serde_json::from_str::<serde_json::Value>(&request_str) {
+                                    if let Some(method) = request.get("method").and_then(|m| m.as_str()) {
+                                        match method {
+                                            "getAccountInfo" => {
+                                                trace!("Processing getAccountInfo request");
+                                                if let Some(params) = request.get("params").and_then(|p| p.as_array()) {
+                                                    if let Some(address) = params.get(0).and_then(|a| a.as_str()) {
+                                                        let response = handler.get_account_info(address.to_string());
+                                                        serde_json::to_string(&response).unwrap_or_default()
+                                                    } else {
+                                                        r#"{"error": "Missing address parameter"}"#.to_string()
+                                                    }
+                                                } else {
+                                                    r#"{"error": "Invalid parameters"}"#.to_string()
+                                                }
+                                            },
+                                            "createAccount" => {
+                                                trace!("Processing createAccount request");
+                                                if let Some(params) = request.get("params").and_then(|p| p.as_array()) {
+                                                    if let Some(address) = params.get(0).and_then(|a| a.as_str()) {
+                                                        let response = handler.create_account(address.to_string());
+                                                        serde_json::to_string(&response).unwrap_or_default()
+                                                    } else {
+                                                        r#"{"error": "Missing address parameter"}"#.to_string()
+                                                    }
+                                                } else {
+                                                    r#"{"error": "Invalid parameters"}"#.to_string()
+                                                }
+                                            },
+                                            _ => {
+                                                debug!("Unhandled RPC method: {}", method);
+                                                r#"{"error": "Method not found"}"#.to_string()
+                                            }
+                                        }
+                                    } else {
+                                        r#"{"error": "Invalid request, missing method"}"#.to_string()
                                     }
                                 } else {
-                                    debug!("Unhandled RPC method, echoing back");
-                                    if let Err(e) = socket.write_all(&buf[..n]).await {
-                                        error!("Failed to write to socket {}: {:?}", peer_addr, e);
-                                    }
+                                    r#"{"error": "Invalid JSON-RPC request"}"#.to_string()
+                                };
+                                
+                                debug!("Sending response to {}: {}", peer_addr, response);
+                                if let Err(e) = socket.write_all(response.as_bytes()).await {
+                                    error!("Failed to write response to {}: {:?}", peer_addr, e);
                                 }
                             }
                         }
