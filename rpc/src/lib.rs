@@ -10,14 +10,15 @@ pub struct AccountInfo {
     verified: bool,
 }
 
+#[derive(Clone)]
 pub struct RpcHandler {
     runtime: Runtime,
 }
 
 impl RpcHandler {
-    pub fn new() -> Self {
+    pub fn new(runtime: Runtime) -> Self {
         RpcHandler {
-            runtime: Runtime::new(),
+            runtime,
         }
     }
 

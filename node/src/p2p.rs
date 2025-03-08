@@ -6,6 +6,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use std::sync::{Arc, Mutex};
 
 /// Simple peer-to-peer network implementation
+#[derive(Clone)]
 pub struct P2PNetwork {
     peers: Arc<Mutex<HashMap<SocketAddr, PeerInfo>>>,
     listen_addr: SocketAddr,

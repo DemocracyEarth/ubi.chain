@@ -1,5 +1,8 @@
 //! Runtime implementation for UBI Chain
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -9,7 +12,7 @@ mod tests {
 }
 
 /// Represents the state of a user account
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Account {
     pub address: String,
     pub balance: u64,
@@ -17,20 +20,23 @@ pub struct Account {
 }
 
 /// Main runtime implementation
+#[derive(Clone)]
 pub struct Runtime {
     // TODO: Add state management
-    accounts: std::collections::HashMap<String, Account>,
+    accounts: Arc<std::sync::Mutex<HashMap<String, Account>>>,
 }
 
 impl Runtime {
     pub fn new() -> Self {
         Runtime {
-            accounts: std::collections::HashMap::new(),
+            accounts: Arc::new(std::sync::Mutex::new(HashMap::new())),
         }
     }
 
     pub fn get_balance(&self, address: &str) -> u64 {
         self.accounts
+            .lock()
+            .unwrap()
             .get(address)
             .map(|account| account.balance)
             .unwrap_or(0)
@@ -38,6 +44,8 @@ impl Runtime {
 
     pub fn is_account_verified(&self, address: &str) -> bool {
         self.accounts
+            .lock()
+            .unwrap()
             .get(address)
             .map(|account| account.verified)
             .unwrap_or(false)
