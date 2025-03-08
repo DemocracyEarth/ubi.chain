@@ -16,6 +16,23 @@ use std::sync::Arc;
 use hex;
 use rand;
 
+/// Validates if a string is a valid Ethereum address
+///
+/// # Arguments
+/// * `address` - The address string to validate
+///
+/// # Returns
+/// true if the address is valid, false otherwise
+fn is_valid_eth_address(address: &str) -> bool {
+    // Ethereum addresses are 0x followed by 40 hex characters
+    if !address.starts_with("0x") || address.len() != 42 {
+        return false;
+    }
+    
+    // Check if all characters after 0x are valid hex
+    address[2..].chars().all(|c| c.is_ascii_hexdigit())
+}
+
 /// Ethereum-compatible block information
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EthBlock {
@@ -123,11 +140,14 @@ impl EthRpcHandler {
                 None => return future::err(Error::invalid_params("Invalid address format")),
             };
 
-            // Convert Ethereum address to UBI Chain address format if needed
-            let ubi_address = address.clone();
+            // Create the account if it doesn't exist
+            // This ensures that any address queried by MetaMask will be created
+            if is_valid_eth_address(&address) {
+                let _ = handler_clone.rpc_handler.create_account(address.clone());
+            }
             
             // Get balance from UBI Chain
-            let account_info = handler_clone.rpc_handler.get_account_info(ubi_address);
+            let account_info = handler_clone.rpc_handler.get_account_info(address.clone());
             
             // Convert balance to Ethereum-compatible hex format
             let balance_hex = format!("0x{:x}", account_info.balance);
@@ -172,11 +192,22 @@ impl EthRpcHandler {
         });
 
         // eth_getTransactionCount - Returns the number of transactions sent from an address
-        let _handler_clone = handler.clone();
+        let handler_clone = handler.clone();
         io.add_method("eth_getTransactionCount", move |params: jsonrpc_core::Params| {
             let params: Vec<Value> = params.parse().unwrap_or_default();
             if params.len() < 1 {
                 return future::err(Error::invalid_params("Missing address parameter"));
+            }
+
+            let address = match params[0].as_str() {
+                Some(addr) => addr.to_string(),
+                None => return future::err(Error::invalid_params("Invalid address format")),
+            };
+
+            // Create the account if it doesn't exist
+            // This ensures that any address queried by MetaMask will be created
+            if is_valid_eth_address(&address) {
+                let _ = handler_clone.rpc_handler.create_account(address.clone());
             }
 
             // Return 0 for now
@@ -288,33 +319,13 @@ impl EthRpcHandler {
         // personal_newAccount - Creates a new account
         let handler_clone = handler.clone();
         io.add_method("personal_newAccount", move |params: jsonrpc_core::Params| {
-            let params: Vec<Value> = params.parse().unwrap_or_default();
-            
             // For personal_newAccount, we typically expect a password parameter
             // However, since we're not implementing full wallet functionality,
-            // we'll just create an account with the provided address or generate one
+            // we'll just create an account with a random address
             
-            if params.len() < 1 {
-                return future::err(Error::invalid_params("Missing address parameter"));
-            }
-            
-            let address = match params[0].as_str() {
-                Some(addr) => {
-                    // If the address is provided, use it
-                    if addr.starts_with("0x") {
-                        addr.to_string()
-                    } else {
-                        format!("0x{}", addr)
-                    }
-                },
-                None => {
-                    // Generate a random address if none provided
-                    // This is a simplified version - in a real implementation,
-                    // you would generate a proper Ethereum address from a private key
-                    let random_bytes = (0..20).map(|_| rand::random::<u8>()).collect::<Vec<_>>();
-                    format!("0x{}", hex::encode(random_bytes))
-                }
-            };
+            // Generate a random address
+            let random_bytes = (0..20).map(|_| rand::random::<u8>()).collect::<Vec<_>>();
+            let address = format!("0x{}", hex::encode(random_bytes));
             
             // Create the account in UBI Chain
             let result = handler_clone.rpc_handler.create_account(address.clone());
@@ -338,6 +349,18 @@ impl EthRpcHandler {
         // web3_clientVersion - Returns the current client version
         io.add_method("web3_clientVersion", |_params| {
             future::ok(Value::String("UBI-Chain/v0.1.0".to_string()))
+        });
+
+        // eth_getTokenInfo - Custom method to provide token information
+        io.add_method("eth_getTokenInfo", |_params| {
+            let token_info = json!({
+                "name": "Universal Basic Income",
+                "symbol": "UBI",
+                "decimals": 18,
+                "totalSupply": "0x0",
+                "description": "UBI Chain native token for universal basic income distribution"
+            });
+            future::ok(token_info)
         });
 
         // eth_call - Executes a new message call immediately without creating a transaction on the block chain

@@ -146,6 +146,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             match eth_rpc_handler.start_server(&eth_rpc_addr) {
                 Ok(server) => {
                     info!("Ethereum JSON-RPC server started successfully");
+                    info!("Chain ID: {}, Token Symbol: UBI", args.chain_id);
                     // Keep the server running
                     server.wait();
                 },
