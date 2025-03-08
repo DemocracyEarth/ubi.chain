@@ -61,8 +61,8 @@ struct Args {
     eth_rpc_port: u16,
     
     /// Chain ID for Ethereum compatibility (EIP-155)
-    /// Default: 1337 (common for private networks)
-    #[arg(long, default_value = "1337")]
+    /// Default: 2030 (UBI Chain network)
+    #[arg(long, default_value = "2030")]
     chain_id: u64,
     
     /// Disable Ethereum JSON-RPC server
