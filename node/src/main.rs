@@ -8,7 +8,7 @@
 /// 
 use tokio::net::TcpListener;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use log::{info, error};
+use log::{info, error, trace, debug, warn};
 use std::net::SocketAddr;
 use std::str::FromStr;
 use clap::Parser;
@@ -61,19 +61,26 @@ struct Args {
 /// 6. Manages peer connections
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize logging for debug and monitoring
-    env_logger::init();
+    // Initialize logging with maximum verbosity
+    env_logger::Builder::from_default_env()
+        .filter_level(log::LevelFilter::Trace)
+        .format_timestamp_millis()
+        .init();
+    
+    trace!("Initializing UBI Chain node...");
     
     // Parse command line arguments for configuration
     let args = Args::parse();
+    debug!("Parsed command line arguments: {:?}", args);
     
     info!("Starting UBI Chain node...");
     
     // Initialize the runtime environment for executing chain logic
+    trace!("Initializing runtime environment...");
     let runtime = Runtime::new();
+    debug!("Runtime environment initialized successfully");
     
     // Calculate RPC port if not specified (P2P port - 20400)
-    // This makes P2P port 30333 map to RPC port 9933
     let rpc_port = args.rpc_port.unwrap_or(args.port - 20400);
     let rpc_addr = format!("{}:{}", args.rpc_host, rpc_port);
     
@@ -81,20 +88,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("RPC server will listen on {}", rpc_addr);
     
     // Construct P2P address from host and port
+    trace!("Setting up P2P network...");
     let p2p_addr = format!("{}:{}", args.p2p_host, args.port);
     let p2p_addr = SocketAddr::from_str(&p2p_addr)?;
     let p2p_network = P2PNetwork::new(p2p_addr);
+    debug!("P2P network initialized with address: {}", p2p_addr);
     
     // Initialize and launch the RPC server in a separate task
+    trace!("Initializing RPC handler...");
     let rpc_handler = rpc::RpcHandler::new(runtime);
+    debug!("RPC handler initialized successfully");
     
+    info!("Launching RPC server...");
     tokio::spawn(async move {
+        debug!("Starting RPC server on {}", rpc_addr);
         if let Err(e) = run_rpc_server(&rpc_addr, rpc_handler).await {
             error!("RPC server error: {}", e);
+            error!("RPC server error details: {:?}", e);
         }
     });
 
-    // Get peers from command line arguments or use empty vec if none specified
+    // Get peers from command line arguments
     let initial_peers = args.peers
         .map(|peers| peers.split(',').map(String::from).collect())
         .unwrap_or_else(Vec::new);
@@ -105,36 +119,50 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         info!("Connecting to initial peers: {:?}", initial_peers);
     }
 
-    // Clone P2P network instance for the peer monitoring task
     let p2p_network_monitor = p2p_network.clone();
     let monitor_peers = initial_peers.clone();
 
     // Only spawn monitoring task if we have peers to monitor
     if !monitor_peers.is_empty() {
+        debug!("Starting peer monitoring task for {} peers", monitor_peers.len());
         tokio::spawn(async move {
             loop {
+                trace!("Running peer connection check cycle...");
                 for peer_addr in &monitor_peers {
-                    if let Ok(addr) = SocketAddr::from_str(peer_addr) {
-                        if !p2p_network_monitor.is_peer_connected(&addr) {
-                            info!("Attempting to reconnect to peer: {}", addr);
-                            p2p_network_monitor.connect_to_peer(addr).await;
+                    match SocketAddr::from_str(peer_addr) {
+                        Ok(addr) => {
+                            let is_connected = p2p_network_monitor.is_peer_connected(&addr);
+                            trace!("Peer {} connection status: {}", addr, is_connected);
+                            if !is_connected {
+                                info!("Attempting to reconnect to peer: {}", addr);
+                                p2p_network_monitor.connect_to_peer(addr).await;
+                                debug!("Connection attempt completed for peer: {}", addr);
+                            }
                         }
+                        Err(e) => warn!("Invalid peer address {}: {}", peer_addr, e),
                     }
                 }
+                trace!("Peer check cycle complete, sleeping for 60 seconds");
                 tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
             }
         });
 
         // Establish initial peer connections
+        debug!("Establishing initial peer connections...");
         for peer_addr in &initial_peers {
-            if let Ok(addr) = SocketAddr::from_str(peer_addr) {
-                info!("Connecting to peer: {}", addr);
-                p2p_network.connect_to_peer(addr).await;
+            match SocketAddr::from_str(peer_addr) {
+                Ok(addr) => {
+                    info!("Connecting to peer: {}", addr);
+                    p2p_network.connect_to_peer(addr).await;
+                    debug!("Initial connection attempt completed for peer: {}", addr);
+                }
+                Err(e) => warn!("Invalid initial peer address {}: {}", peer_addr, e),
             }
         }
     }
     
-    // Start the P2P network and block on it
+    info!("Starting P2P network...");
+    trace!("Entering P2P network main loop");
     p2p_network.start().await?;
     
     Ok(())
@@ -148,48 +176,51 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// - Chain state queries
 /// - Network status information
 async fn run_rpc_server(addr: &str, rpc_handler: rpc::RpcHandler) -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize TCP listener for RPC connections
+    trace!("Initializing RPC server TCP listener...");
     let listener = TcpListener::bind(addr).await?;
     info!("JSON-RPC server listening on {}", addr);
 
     loop {
-        // Accept incoming RPC connections
-        let (mut socket, peer_addr) = listener.accept().await?;
-        info!("RPC: Accepted connection from {}", peer_addr);
+        trace!("Waiting for incoming RPC connection...");
+        match listener.accept().await {
+            Ok((mut socket, peer_addr)) => {
+                info!("RPC: Accepted connection from {}", peer_addr);
+                let handler = rpc_handler.clone();
 
-        // Clone handler for this connection's task
-        let handler = rpc_handler.clone();
-
-        // Spawn a new task for handling this RPC connection
-        tokio::spawn(async move {
-            let mut buf = vec![0; 1024];
-            // Read incoming RPC request
-            match socket.read(&mut buf).await {
-                Ok(0) => return, // Connection closed by client
-                Ok(n) => {
-                    // Parse and handle JSON-RPC request
-                    if let Ok(request_str) = String::from_utf8(buf[..n].to_vec()) {
-                        // Example: Handle getAccountInfo method
-                        if request_str.contains("getAccountInfo") {
-                            // Process account information request
-                            let response = handler.get_account_info("example_address".to_string());
-                            let response_json = serde_json::to_string(&response).unwrap_or_default();
-                            if let Err(e) = socket.write_all(response_json.as_bytes()).await {
-                                error!("Failed to write response: {:?}", e);
-                            }
-                        } else {
-                            // Echo unhandled methods (temporary)
-                            if let Err(e) = socket.write_all(&buf[..n]).await {
-                                error!("Failed to write to socket: {:?}", e);
+                tokio::spawn(async move {
+                    let mut buf = vec![0; 1024];
+                    trace!("Reading from RPC connection {}", peer_addr);
+                    match socket.read(&mut buf).await {
+                        Ok(0) => debug!("RPC connection closed by client: {}", peer_addr),
+                        Ok(n) => {
+                            trace!("Received {} bytes from {}", n, peer_addr);
+                            if let Ok(request_str) = String::from_utf8(buf[..n].to_vec()) {
+                                debug!("RPC request from {}: {}", peer_addr, request_str);
+                                if request_str.contains("getAccountInfo") {
+                                    trace!("Processing getAccountInfo request");
+                                    let response = handler.get_account_info("example_address".to_string());
+                                    let response_json = serde_json::to_string(&response).unwrap_or_default();
+                                    debug!("Sending response to {}: {}", peer_addr, response_json);
+                                    if let Err(e) = socket.write_all(response_json.as_bytes()).await {
+                                        error!("Failed to write response to {}: {:?}", peer_addr, e);
+                                    }
+                                } else {
+                                    debug!("Unhandled RPC method, echoing back");
+                                    if let Err(e) = socket.write_all(&buf[..n]).await {
+                                        error!("Failed to write to socket {}: {:?}", peer_addr, e);
+                                    }
+                                }
                             }
                         }
+                        Err(e) => {
+                            error!("Failed to read from RPC connection {}: {:?}", peer_addr, e);
+                        }
                     }
-                }
-                Err(e) => {
-                    error!("Failed to read from socket: {:?}", e);
-                    return;
-                }
+                });
             }
-        });
+            Err(e) => {
+                error!("Failed to accept RPC connection: {:?}", e);
+            }
+        }
     }
 }
