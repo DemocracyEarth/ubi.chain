@@ -8,9 +8,9 @@ UBI Chain is a blockchain project designed to provide a universal basic income (
 
 ## Project Structure
 
-- **node**: The main blockchain node implementation
-- **runtime**: Core blockchain logic and state management
-- **rpc**: JSON-RPC interface for interacting with the blockchain
+- **node**: The main blockchain node implementation (`ubi-chain-node`)
+- **runtime**: Core blockchain logic and state management (`ubi-chain-runtime`)
+- **rpc**: JSON-RPC interface for interacting with the blockchain (`ubi-chain-rpc`)
 
 ## Getting Started
 
@@ -46,12 +46,12 @@ cargo build --release
 
 1. Start a development node:
    ```bash
-   cargo run --release --bin node -- --dev
+   cargo run --release --bin ubi-chain-node -- --dev
    ```
 
 2. Start a node with custom configuration:
    ```bash
-   cargo run --release --bin node -- \
+   cargo run --release --bin ubi-chain-node -- \
      --base-path /tmp/node01 \
      --chain local \
      --port 30333 \
@@ -61,10 +61,8 @@ cargo build --release
 
 ### Interacting with the Chain
 
-1. Using RPC Client:
-   ```bash
-   cargo run --release --bin rpc-client -- --ws-url ws://127.0.0.1:9944
-   ```
+1. Using the RPC Interface:
+   The RPC interface is provided by the `ubi-chain-rpc` package. You can interact with it using standard HTTP/WebSocket clients.
 
 2. Using Web Interface:
    - Open https://polkadot.js.org/apps/
