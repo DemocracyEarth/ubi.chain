@@ -36,18 +36,37 @@ cargo build --release
 
 ## Running a Node
 
-### Development Mode
+### Single Node
 ```bash
-cargo run --release --bin ubi-chain-node -- --dev
+cargo run --release --bin ubi-chain-node
 ```
+
+### Running Multiple Nodes Locally
+To test peer-to-peer functionality locally, you can run multiple nodes with different port mappings:
+
+```bash
+# Terminal 1 - First node on default ports
+cargo run --release --bin ubi-chain-node
+
+# Terminal 2 - Second node with different ports
+cargo run --release --bin ubi-chain-node -p 30334 --ws-port 9945 --rpc-port 9934
+
+# Terminal 3 - Third node with different ports
+cargo run --release --bin ubi-chain-node -p 30335 --ws-port 9946 --rpc-port 9935
+```
+
+Each node needs unique ports for:
+- P2P communication (-p or --port-mapping)
+- WebSocket (--ws-port)
+- RPC (--rpc-port)
 
 ### Production Mode
 ```bash
-cargo run --release --bin ubi-chain-node -- \
+cargo run --release --bin ubi-chain-node \
   --base-path /data/ubi-chain \
   --chain mainnet \
   --name my-node \
-  --port 30333 \
+  -p 30333 \
   --ws-port 9944 \
   --rpc-port 9933
 ```

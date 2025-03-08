@@ -23,15 +23,31 @@ use rpc;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// RPC server address for external API access
-    /// Default: 127.0.0.1:9933
-    #[arg(long, default_value = "127.0.0.1:9933")]
-    rpc_addr: String,
+    /// Port number for P2P network communication
+    /// Default: 30333
+    #[arg(long, default_value = "30333")]
+    port: u16,
     
-    /// P2P network address for node communication
-    /// Default: 127.0.0.1:30333
-    #[arg(long, default_value = "127.0.0.1:30333")]
-    p2p_addr: String,
+    /// P2P network host address (optional)
+    /// Default: 127.0.0.1
+    #[arg(long, default_value = "127.0.0.1")]
+    p2p_host: String,
+
+    /// Comma-separated list of peer addresses to connect to
+    /// Example: --peers 127.0.0.1:30334,127.0.0.1:30335
+    #[arg(long)]
+    peers: Option<String>,
+
+    /// RPC server host address
+    /// Default: 127.0.0.1
+    #[arg(long, default_value = "127.0.0.1")]
+    rpc_host: String,
+
+    /// RPC server port (optional)
+    /// If not specified, will be calculated as (P2P port - 20400)
+    /// Example: P2P port 30333 → RPC port 9933
+    #[arg(long)]
+    rpc_port: Option<u16>,
 }
 
 /// Main entry point for the UBI Chain node
@@ -56,50 +72,65 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize the runtime environment for executing chain logic
     let runtime = Runtime::new();
     
-    // Start the P2P network for inter-node communication
-    let p2p_addr = SocketAddr::from_str(&args.p2p_addr)?;
+    // Calculate RPC port if not specified (P2P port - 20400)
+    // This makes P2P port 30333 map to RPC port 9933
+    let rpc_port = args.rpc_port.unwrap_or(args.port - 20400);
+    let rpc_addr = format!("{}:{}", args.rpc_host, rpc_port);
+    
+    info!("P2P network will listen on {}:{}", args.p2p_host, args.port);
+    info!("RPC server will listen on {}", rpc_addr);
+    
+    // Construct P2P address from host and port
+    let p2p_addr = format!("{}:{}", args.p2p_host, args.port);
+    let p2p_addr = SocketAddr::from_str(&p2p_addr)?;
     let p2p_network = P2PNetwork::new(p2p_addr);
     
     // Initialize and launch the RPC server in a separate task
-    let rpc_addr = args.rpc_addr.clone();
     let rpc_handler = rpc::RpcHandler::new(runtime);
     
     tokio::spawn(async move {
-        run_rpc_server(&rpc_addr, rpc_handler).await.unwrap();
+        if let Err(e) = run_rpc_server(&rpc_addr, rpc_handler).await {
+            error!("RPC server error: {}", e);
+        }
     });
 
-    // Define initial peers for the network (development/testing)
-    let initial_peers = vec![
-        "127.0.0.1:30334",  // Example peer 1
-        "127.0.0.1:30335",  // Example peer 2
-    ];
+    // Get peers from command line arguments or use empty vec if none specified
+    let initial_peers = args.peers
+        .map(|peers| peers.split(',').map(String::from).collect())
+        .unwrap_or_else(Vec::new);
+
+    if initial_peers.is_empty() {
+        info!("No initial peers specified. Running in standalone mode.");
+    } else {
+        info!("Connecting to initial peers: {:?}", initial_peers);
+    }
 
     // Clone P2P network instance for the peer monitoring task
     let p2p_network_monitor = p2p_network.clone();
     let monitor_peers = initial_peers.clone();
 
-    // Spawn a background task to monitor and maintain peer connections
-    tokio::spawn(async move {
-        loop {
-            for peer_addr in &monitor_peers {
-                if let Ok(addr) = SocketAddr::from_str(peer_addr) {
-                    // Attempt to reconnect to disconnected peers
-                    if !p2p_network_monitor.is_peer_connected(&addr) {
-                        info!("Attempting to reconnect to peer: {}", addr);
-                        p2p_network_monitor.connect_to_peer(addr).await;
+    // Only spawn monitoring task if we have peers to monitor
+    if !monitor_peers.is_empty() {
+        tokio::spawn(async move {
+            loop {
+                for peer_addr in &monitor_peers {
+                    if let Ok(addr) = SocketAddr::from_str(peer_addr) {
+                        if !p2p_network_monitor.is_peer_connected(&addr) {
+                            info!("Attempting to reconnect to peer: {}", addr);
+                            p2p_network_monitor.connect_to_peer(addr).await;
+                        }
                     }
                 }
+                tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
             }
-            // Check connections every minute
-            tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
-        }
-    });
+        });
 
-    // Establish initial peer connections
-    for peer_addr in &initial_peers {
-        if let Ok(addr) = SocketAddr::from_str(peer_addr) {
-            info!("Connecting to peer: {}", addr);
-            p2p_network.connect_to_peer(addr).await;
+        // Establish initial peer connections
+        for peer_addr in &initial_peers {
+            if let Ok(addr) = SocketAddr::from_str(peer_addr) {
+                info!("Connecting to peer: {}", addr);
+                p2p_network.connect_to_peer(addr).await;
+            }
         }
     }
     
