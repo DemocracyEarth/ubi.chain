@@ -73,15 +73,32 @@ impl P2PNetwork {
                 }
             }
 
-            // Remove peer when disconnected
+            // Update peer status when disconnected
             let mut peers = peers_clone.lock().unwrap();
-            peers.remove(&addr);
+            if let Some(peer_info) = peers.get_mut(&addr) {
+                peer_info.connected = false;
+            }
             info!("Peer disconnected: {}", addr);
         });
     }
 
-    pub fn connect_to_peer(&self, addr: SocketAddr) {
-        // TODO: Implement outbound connections
-        info!("Would connect to peer at {}", addr);
+    pub async fn connect_to_peer(&self, addr: SocketAddr) {
+        match TcpStream::connect(addr).await {
+            Ok(socket) => {
+                info!("Successfully connected to peer: {}", addr);
+                self.handle_peer(socket, addr).await;
+            }
+            Err(e) => {
+                error!("Failed to connect to peer {}: {}", addr, e);
+            }
+        }
+    }
+
+    pub fn is_peer_connected(&self, addr: &SocketAddr) -> bool {
+        if let Some(peer_info) = self.peers.lock().unwrap().get(addr) {
+            peer_info.connected
+        } else {
+            false
+        }
     }
 }

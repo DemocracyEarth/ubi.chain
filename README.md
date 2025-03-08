@@ -17,57 +17,113 @@ UBI Chain is a blockchain project designed to provide a universal basic income (
 ### Prerequisites
 
 - Rust and Cargo (latest stable version)
+  ```bash
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+  rustup update stable
+  ```
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/ubi-chain.git
+   cd ubi-chain
+   ```
+
+2. Install dependencies:
+   ```bash
+   cargo check
+   ```
 
 ### Building
 
-1. Clone the repository:
-
+Build all components of the project:
 ```bash
-git clone https://github.com/yourusername/ubi-chain.git
-```
-
-2. Build the project:
-
-```bash
-cargo build
+cargo build --release
 ```
 
 ### Running the Node
 
-1. Start the node:
+1. Start a development node:
+   ```bash
+   cargo run --release --bin node -- --dev
+   ```
+
+2. Start a node with custom configuration:
+   ```bash
+   cargo run --release --bin node -- \
+     --base-path /tmp/node01 \
+     --chain local \
+     --port 30333 \
+     --ws-port 9945 \
+     --rpc-port 9933
+   ```
+
+### Interacting with the Chain
+
+1. Using RPC Client:
+   ```bash
+   cargo run --release --bin rpc-client -- --ws-url ws://127.0.0.1:9944
+   ```
+
+2. Using Web Interface:
+   - Open https://polkadot.js.org/apps/
+   - Click on the network selector (top left)
+   - Choose "Development" or enter custom endpoint: ws://127.0.0.1:9944
+
+### Common Operations
+
+- Check node status:
+  ```bash
+  curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "system_health", "params":[]}' http://localhost:9933
+  ```
+
+- View logs:
+  ```bash
+  tail -f /tmp/node01/log/node.log
+  ```
+
+## Development
+
+### Running Tests
 
 ```bash
-cargo run --bin node
+# Run all tests
+cargo test --all
+
+# Run specific test
+cargo test -p node
 ```
 
-2. Connect to the node:
+### Code Style
 
+Before submitting PR, ensure code is formatted:
 ```bash
-cargo run --bin rpc
-```
-
-### Interacting with the Blockchain
-
-1. Start the RPC client:
-
-```bash
-cargo run --bin rpc
-```
-
-2. Interact with the blockchain:
-
-```bash
-cargo run --bin rpc
+cargo fmt --all
+cargo clippy --all-targets --all-features
 ```
 
 ## Contributing
 
 1. Fork the repository
-2. Create a new branch
-3. Make your changes and commit them
-4. Push your changes to your fork
+2. Create a new branch: `git checkout -b feature/your-feature-name`
+3. Make your changes and commit them: `git commit -m 'Add some feature'`
+4. Push to the branch: `git push origin feature/your-feature-name`
 5. Create a pull request
 
+## Troubleshooting
+
+- If you encounter build errors, try:
+  ```bash
+  cargo clean
+  cargo update
+  cargo build --release
+  ```
+
+- For node connection issues:
+  1. Check if ports are available
+  2. Ensure firewall settings allow connections
+  3. Verify WebSocket endpoint is accessible
 
 ## License
 

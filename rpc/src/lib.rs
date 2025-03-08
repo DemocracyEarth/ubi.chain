@@ -21,7 +21,19 @@ impl RpcHandler {
         }
     }
 
-    // TODO: Implement RPC methods for interacting with the runtime
+    pub fn get_account_info(&self, address: String) -> AccountInfo {
+        // Use the runtime to fetch account information
+        let balance = self.runtime.get_balance(&address);
+        let verified = self.runtime.is_account_verified(&address);
+        
+        AccountInfo {
+            address,
+            balance,
+            verified,
+        }
+    }
+
+    // TODO: Implement more RPC methods for interacting with the runtime
 }
 
 #[cfg(test)]

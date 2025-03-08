@@ -8,6 +8,7 @@ use clap::Parser;
 mod p2p;
 use p2p::P2PNetwork;
 use runtime::Runtime;
+use rpc;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -40,8 +41,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Start the RPC server in a separate task
     let rpc_addr = args.rpc_addr.clone();
+    let rpc_handler = rpc::RpcHandler::new();
+    
     tokio::spawn(async move {
-        run_rpc_server(&rpc_addr).await.unwrap();
+        run_rpc_server(&rpc_addr, rpc_handler).await.unwrap();
     });
     
     // Start the P2P network (this will block)
@@ -50,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn run_rpc_server(addr: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn run_rpc_server(addr: &str, rpc_handler: rpc::RpcHandler) -> Result<(), Box<dyn std::error::Error>> {
     // Bind a TCP listener for the RPC server
     let listener = TcpListener::bind(addr).await?;
     info!("JSON-RPC server listening on {}", addr);
