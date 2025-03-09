@@ -126,6 +126,12 @@ impl EthRpcHandler {
     ///
     /// # Returns
     /// The server instance
+    ///
+    /// # Important
+    /// The returned server instance must be stored in a variable that lives for the duration
+    /// of the program to prevent the Tokio runtime from being dropped in an asynchronous context.
+    /// Dropping the server in an asynchronous context will cause a panic with:
+    /// "Cannot drop a runtime in a context where blocking is not allowed."
     pub fn start_server(self, addr: &str) -> Result<Server> {
         let addr = SocketAddr::from_str(addr).map_err(|_| {
             Error::invalid_params("Invalid address format")
@@ -144,11 +150,14 @@ impl EthRpcHandler {
         io.add_method("eth_getBlockByHash", clone_handler!(handler, eth_get_block_by_hash));
         io.add_method("eth_accounts", clone_handler!(handler, eth_accounts));
         
-        // Start the server
-        ServerBuilder::new(io)
+        // Start the server with a proper configuration to avoid runtime issues
+        let server = ServerBuilder::new(io)
             .threads(4)
             .start_http(&addr)
-            .map_err(|_e| Error::invalid_request())
+            .map_err(|_e| Error::invalid_request())?;
+            
+        // Return the server without dropping it
+        Ok(server)
     }
     
     /// Implements eth_getBalance

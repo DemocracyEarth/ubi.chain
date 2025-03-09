@@ -90,8 +90,20 @@ impl RpcHandler {
     ///
     /// # Returns
     /// Result containing the server instance or an error
+    ///
+    /// # Important
+    /// The returned server instance must be stored in a variable that lives for the duration
+    /// of the program to prevent the Tokio runtime from being dropped in an asynchronous context.
+    /// 
+    /// # Example
+    /// ```
+    /// let _eth_server = rpc_handler.start_eth_rpc_server("127.0.0.1:8545", 2030)?;
+    /// ```
+    /// Note the use of `_eth_server` to store the server instance.
     pub fn start_eth_rpc_server(&self, addr: &str, chain_id: u64) -> Result<jsonrpc_http_server::Server, String> {
         let eth_handler = eth_compat::EthRpcHandler::new(self.clone(), chain_id);
+        
+        // Start the server and return it to be managed by the caller
         eth_handler.start_server(addr).map_err(|e| format!("Failed to start RPC server: {:?}", e))
     }
 

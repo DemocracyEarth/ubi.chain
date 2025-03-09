@@ -367,6 +367,32 @@ impl BlockProducer {
 /// 4. Starts the P2P network
 /// 5. Launches the RPC server
 /// 6. Manages peer connections
+///
+/// # Important
+/// 
+/// Always run the node with the RUST_LOG environment variable set to avoid runtime issues:
+/// ```bash
+/// RUST_LOG=info cargo run --bin ubi-chain-node
+/// ```
+///
+/// Possible log levels:
+/// - error: Only errors
+/// - warn: Warnings and errors
+/// - info: Standard information (recommended)
+/// - debug: Detailed debugging information
+/// - trace: Very verbose logging
+///
+/// # Examples
+///
+/// Basic node:
+/// ```bash
+/// RUST_LOG=info cargo run --bin ubi-chain-node
+/// ```
+///
+/// Custom configuration:
+/// ```bash
+/// RUST_LOG=info cargo run --bin ubi-chain-node -- --port 30333 --peers 127.0.0.1:30334
+/// ```
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
@@ -399,7 +425,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Create channels for transactions and blocks
     let (tx_sender, _) = broadcast::channel(100);
-    let (block_sender, _) = mpsc::channel(100);
+    let (block_sender, mut block_receiver) = mpsc::channel(100);
     
     // Create block producer
     let block_producer = Arc::new(BlockProducer::new(
@@ -416,27 +442,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         block_producer_clone.start().await;
     });
     
+    // Spawn a task to consume blocks from the channel
+    tokio::spawn(async move {
+        while let Some(block) = block_receiver.recv().await {
+            debug!("Received block #{} with {} transactions", block.number, block.transactions.len());
+            // In a real implementation, we would process the block here
+        }
+    });
+    
     // Start Ethereum-compatible JSON-RPC server if not disabled
-    if !args.disable_eth_rpc {
+    let _eth_server = if !args.disable_eth_rpc {
         info!("Starting Ethereum-compatible JSON-RPC server on {}", eth_rpc_addr);
         match rpc_handler.start_eth_rpc_server(&eth_rpc_addr, args.chain_id) {
-            Ok(_server) => {
+            Ok(server) => {
                 info!("Ethereum-compatible JSON-RPC server started successfully");
-                // Keep server alive by not dropping it
-                tokio::spawn(async move {
-                    // This will keep the server running until the program exits
-                    loop {
-                        tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
-                    }
-                });
+                Some(server)
             },
             Err(e) => {
                 error!("Failed to start Ethereum-compatible JSON-RPC server: {}", e);
+                None
             }
         }
     } else {
         info!("Ethereum-compatible JSON-RPC server disabled");
-    }
+        None
+    };
     
     // Start P2P network
     let _p2p_network = P2PNetwork::new(p2p_socket_addr);

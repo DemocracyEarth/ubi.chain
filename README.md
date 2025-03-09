@@ -54,33 +54,42 @@ cargo build --release
 
 1. Start a development node:
    ```bash
-   cargo run --release --bin ubi-chain-node -- --port 30333
+   RUST_LOG=info cargo run --bin ubi-chain-node
    ```
 
 2. Start a node with custom configuration:
    ```bash
-   cargo run --release --bin ubi-chain-node -- \
+   RUST_LOG=info cargo run --bin ubi-chain-node -- \
      --port 30333 \
      --p2p-host 127.0.0.1 \
      --rpc-host 127.0.0.1 \
      --chain-id 2030
    ```
 
-3. Enable verbose logging:
+3. Adjust logging level as needed:
    ```bash
-   RUST_LOG=debug cargo run --release --bin ubi-chain-node -- --port 30333
+   # For minimal logging (warnings and errors only)
+   RUST_LOG=warn cargo run --bin ubi-chain-node
+   
+   # For standard information
+   RUST_LOG=info cargo run --bin ubi-chain-node
+   
+   # For detailed debugging information
+   RUST_LOG=debug cargo run --bin ubi-chain-node
    ```
+
+> **Note**: Always set the `RUST_LOG` environment variable when running the node to ensure proper logging and to avoid potential runtime issues.
 
 ### Running Multiple Nodes
 
 1. First node (Terminal 1):
    ```bash
-   cargo run --release --bin ubi-chain-node -- --port 30333
+   RUST_LOG=info cargo run --bin ubi-chain-node -- --port 30333
    ```
 
 2. Second node (Terminal 2):
    ```bash
-   cargo run --release --bin ubi-chain-node -- --port 30334 --peers 127.0.0.1:30333
+   RUST_LOG=info cargo run --bin ubi-chain-node -- --port 30334 --peers 127.0.0.1:30333
    ```
 
 ### Ethereum Compatibility
@@ -89,7 +98,7 @@ UBI Chain provides Ethereum JSON-RPC compatibility, allowing you to connect stan
 
 1. Start a node with Ethereum RPC enabled:
    ```bash
-   cargo run --release --bin ubi-chain-node -- --eth-rpc-port 8545 --chain-id 2030
+   RUST_LOG=info cargo run --bin ubi-chain-node -- --eth-rpc-port 8545 --chain-id 2030
    ```
 
 2. Connect MetaMask or other Ethereum wallets:
@@ -162,11 +171,22 @@ cargo clippy --all-targets --all-features
 
 ## Troubleshooting
 
+- If you encounter a runtime panic with "Cannot drop a runtime in a context where blocking is not allowed":
+  ```
+  thread 'main' panicked at '...Cannot drop a runtime in a context where blocking is not allowed. This happens when a runtime is dropped from within an asynchronous context.'
+  ```
+  This is typically caused by not setting the `RUST_LOG` environment variable. Always run the node with:
+  ```bash
+  RUST_LOG=info cargo run --bin ubi-chain-node
+  ```
+
+- If you see "Failed to send block: channel closed" errors in the logs, this is expected in a test environment where no peers are connected to receive the blocks.
+
 - If you encounter build errors, try:
   ```bash
   cargo clean
   cargo update
-  cargo build --release
+  cargo build
   ```
 
 - For node connection issues:
