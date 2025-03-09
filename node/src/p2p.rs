@@ -7,11 +7,13 @@ use std::sync::{Arc, Mutex};
 
 /// Simple peer-to-peer network implementation
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct P2PNetwork {
     peers: Arc<Mutex<HashMap<SocketAddr, PeerInfo>>>,
     listen_addr: SocketAddr,
 }
 
+#[allow(dead_code)]
 struct PeerInfo {
     // Add peer metadata as needed
     connected: bool,
@@ -25,6 +27,7 @@ impl P2PNetwork {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
         let listener = TcpListener::bind(self.listen_addr).await?;
         info!("P2P network listening on {}", self.listen_addr);
@@ -42,6 +45,7 @@ impl P2PNetwork {
         }
     }
 
+    #[allow(dead_code)]
     async fn handle_peer(&self, mut socket: TcpStream, addr: SocketAddr) {
         // Add peer to our list
         {
@@ -83,6 +87,7 @@ impl P2PNetwork {
         });
     }
 
+    #[allow(dead_code)]
     pub async fn connect_to_peer(&self, addr: SocketAddr) {
         match TcpStream::connect(addr).await {
             Ok(socket) => {
@@ -95,6 +100,7 @@ impl P2PNetwork {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_peer_connected(&self, addr: &SocketAddr) -> bool {
         if let Some(peer_info) = self.peers.lock().unwrap().get(addr) {
             peer_info.connected

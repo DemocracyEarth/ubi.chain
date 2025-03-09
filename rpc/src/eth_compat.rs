@@ -16,6 +16,19 @@ use std::sync::Arc;
 use hex;
 use rand;
 
+// Helper macro for cloning handlers
+macro_rules! clone_handler {
+    ($handler:expr, $method:ident) => {
+        {
+            let handler = $handler.clone();
+            move |params| {
+                let handler = handler.clone();
+                async move { handler.$method(params).await }
+            }
+        }
+    };
+}
+
 /// Validates if a string is a valid Ethereum address
 ///
 /// # Arguments
@@ -94,315 +107,333 @@ pub struct EthRpcHandler {
 }
 
 impl EthRpcHandler {
-    /// Creates a new Ethereum RPC handler
+    /// Creates a new Ethereum-compatible RPC handler
+    ///
+    /// # Arguments
+    /// * `rpc_handler` - The UBI Chain RPC handler
+    /// * `chain_id` - Chain ID for EIP-155 compatibility
     pub fn new(rpc_handler: RpcHandler, chain_id: u64) -> Self {
-        Self {
+        EthRpcHandler {
             rpc_handler,
             chain_id,
         }
     }
-
-    /// Starts the Ethereum JSON-RPC server
+    
+    /// Starts the JSON-RPC server
+    ///
+    /// # Arguments
+    /// * `addr` - The address to bind the server to
+    ///
+    /// # Returns
+    /// The server instance
     pub fn start_server(self, addr: &str) -> Result<Server> {
-        let addr = SocketAddr::from_str(addr)
-            .map_err(|_| Error::invalid_params("Invalid server address"))?;
-
-        let mut io = jsonrpc_core::IoHandler::new();
-        let handler = Arc::new(self);
-
-        // Register Ethereum JSON-RPC methods
+        let addr = SocketAddr::from_str(addr).map_err(|_| {
+            Error::invalid_params("Invalid address format")
+        })?;
         
-        // eth_chainId - Returns the chain ID used for signing replay-protected transactions
-        let handler_clone = handler.clone();
-        io.add_method("eth_chainId", move |_params| {
-            let chain_id = format!("0x{:x}", handler_clone.chain_id);
-            future::ok(Value::String(chain_id))
-        });
-
-        // eth_blockNumber - Returns the current block number
-        let _handler_clone = handler.clone();
-        io.add_method("eth_blockNumber", move |_params| {
-            // Return a mock block number for now
-            // In a real implementation, this would query the actual block height
-            future::ok(Value::String("0x1".to_string()))
-        });
-
-        // eth_getBalance - Returns the balance of the account of given address
-        let handler_clone = handler.clone();
-        io.add_method("eth_getBalance", move |params: jsonrpc_core::Params| {
-            let params: Vec<Value> = params.parse().unwrap_or_default();
-            if params.len() < 1 {
-                return future::err(Error::invalid_params("Missing address parameter"));
-            }
-
-            let address = match params[0].as_str() {
-                Some(addr) => addr.to_string(),
-                None => return future::err(Error::invalid_params("Invalid address format")),
-            };
-
-            // Create the account if it doesn't exist
-            // This ensures that any address queried by MetaMask will be created
-            if is_valid_eth_address(&address) {
-                let _ = handler_clone.rpc_handler.create_account(address.clone());
-            }
-            
-            // Get balance from UBI Chain
-            let account_info = handler_clone.rpc_handler.get_account_info(address.clone());
-            
-            // Convert balance to Ethereum-compatible hex format
-            let balance_hex = format!("0x{:x}", account_info.balance);
-            
-            future::ok(Value::String(balance_hex))
-        });
-
-        // eth_accounts - Returns a list of addresses owned by client
-        let handler_clone = handler.clone();
-        io.add_method("eth_accounts", move |_params| {
-            // In a real implementation, this would return accounts managed by the node
-            // For now, we'll return a mock account for testing
-            let mock_address = "0x0000000000000000000000000000000000000001";
-            
-            // Create the account if it doesn't exist
-            let _ = handler_clone.rpc_handler.create_account(mock_address.to_string());
-            
-            // Return the account in the list
-            future::ok(Value::Array(vec![Value::String(mock_address.to_string())]))
-        });
-
-        // net_version - Returns the current network ID
-        let handler_clone = handler.clone();
-        io.add_method("net_version", move |_params| {
-            // Return chain ID as network version
-            future::ok(Value::String(handler_clone.chain_id.to_string()))
-        });
-
-        // eth_gasPrice - Returns the current price per gas in wei
-        let _handler_clone = handler.clone();
-        io.add_method("eth_gasPrice", move |_params| {
-            // Return a fixed gas price for now
-            // In a real implementation, this would be dynamic based on network conditions
-            future::ok(Value::String("0x1".to_string()))
-        });
-
-        // eth_estimateGas - Generates and returns an estimate of how much gas is necessary
-        let _handler_clone = handler.clone();
-        io.add_method("eth_estimateGas", move |_params: jsonrpc_core::Params| {
-            // Return a fixed gas estimate for now
-            future::ok(Value::String("0x5208".to_string())) // 21000 gas (standard transfer)
-        });
-
-        // eth_getTransactionCount - Returns the number of transactions sent from an address
-        let handler_clone = handler.clone();
-        io.add_method("eth_getTransactionCount", move |params: jsonrpc_core::Params| {
-            let params: Vec<Value> = params.parse().unwrap_or_default();
-            if params.len() < 1 {
-                return future::err(Error::invalid_params("Missing address parameter"));
-            }
-
-            let address = match params[0].as_str() {
-                Some(addr) => addr.to_string(),
-                None => return future::err(Error::invalid_params("Invalid address format")),
-            };
-
-            // Create the account if it doesn't exist
-            // This ensures that any address queried by MetaMask will be created
-            if is_valid_eth_address(&address) {
-                let _ = handler_clone.rpc_handler.create_account(address.clone());
-            }
-
-            // Return 0 for now
-            // In a real implementation, this would query the actual transaction count
-            future::ok(Value::String("0x0".to_string()))
-        });
-
-        // eth_sendRawTransaction - Creates new message call transaction or a contract creation for signed transactions
-        let _handler_clone = handler.clone();
-        io.add_method("eth_sendRawTransaction", move |params: jsonrpc_core::Params| {
-            let params: Vec<Value> = params.parse().unwrap_or_default();
-            if params.len() < 1 {
-                return future::err(Error::invalid_params("Missing transaction parameter"));
-            }
-
-            let _raw_tx = match params[0].as_str() {
-                Some(tx) => tx.to_string(),
-                None => return future::err(Error::invalid_params("Invalid transaction format")),
-            };
-
-            // Generate a random transaction hash for now
-            // In a real implementation, this would process and broadcast the transaction
-            let tx_hash = format!("0x{}", hex::encode([0u8; 32]));
-            
-            future::ok(Value::String(tx_hash))
-        });
-
-        // eth_getTransactionReceipt - Returns the receipt of a transaction by transaction hash
-        let _handler_clone = handler.clone();
-        io.add_method("eth_getTransactionReceipt", move |params: jsonrpc_core::Params| {
-            let params: Vec<Value> = params.parse().unwrap_or_default();
-            if params.len() < 1 {
-                return future::err(Error::invalid_params("Missing transaction hash parameter"));
-            }
-
-            // Return null for now (transaction not found)
-            // In a real implementation, this would query the actual transaction receipt
-            future::ok(Value::Null)
-        });
-
-        // eth_getBlockByNumber - Returns information about a block by block number
-        let _handler_clone = handler.clone();
-        io.add_method("eth_getBlockByNumber", move |params: jsonrpc_core::Params| {
-            let params: Vec<Value> = params.parse().unwrap_or_default();
-            if params.len() < 1 {
-                return future::err(Error::invalid_params("Missing block number parameter"));
-            }
-
-            // Create a mock block response
-            let block = json!({
-                "number": "0x1",
-                "hash": format!("0x{}", hex::encode([1u8; 32])),
-                "parentHash": format!("0x{}", hex::encode([0u8; 32])),
-                "nonce": "0x0000000000000000",
-                "sha3Uncles": format!("0x{}", hex::encode([0u8; 32])),
-                "logsBloom": format!("0x{}", hex::encode([0u8; 256])),
-                "transactionsRoot": format!("0x{}", hex::encode([0u8; 32])),
-                "stateRoot": format!("0x{}", hex::encode([0u8; 32])),
-                "receiptsRoot": format!("0x{}", hex::encode([0u8; 32])),
-                "miner": "0x0000000000000000000000000000000000000000",
-                "difficulty": "0x0",
-                "totalDifficulty": "0x0",
-                "extraData": "0x",
-                "size": "0x1000",
-                "gasLimit": "0x1000000",
-                "gasUsed": "0x0",
-                "timestamp": "0x5f5e100",
-                "transactions": [],
-                "uncles": []
-            });
-            
-            future::ok(block)
-        });
-
-        // eth_getBlockByHash - Returns information about a block by hash
-        let _handler_clone = handler.clone();
-        io.add_method("eth_getBlockByHash", move |params: jsonrpc_core::Params| {
-            let params: Vec<Value> = params.parse().unwrap_or_default();
-            if params.len() < 1 {
-                return future::err(Error::invalid_params("Missing block hash parameter"));
-            }
-
-            // Create a mock block response (same as eth_getBlockByNumber)
-            let block = json!({
-                "number": "0x1",
-                "hash": format!("0x{}", hex::encode([1u8; 32])),
-                "parentHash": format!("0x{}", hex::encode([0u8; 32])),
-                "nonce": "0x0000000000000000",
-                "sha3Uncles": format!("0x{}", hex::encode([0u8; 32])),
-                "logsBloom": format!("0x{}", hex::encode([0u8; 256])),
-                "transactionsRoot": format!("0x{}", hex::encode([0u8; 32])),
-                "stateRoot": format!("0x{}", hex::encode([0u8; 32])),
-                "receiptsRoot": format!("0x{}", hex::encode([0u8; 32])),
-                "miner": "0x0000000000000000000000000000000000000000",
-                "difficulty": "0x0",
-                "totalDifficulty": "0x0",
-                "extraData": "0x",
-                "size": "0x1000",
-                "gasLimit": "0x1000000",
-                "gasUsed": "0x0",
-                "timestamp": "0x5f5e100",
-                "transactions": [],
-                "uncles": []
-            });
-            
-            future::ok(block)
-        });
-
-        // personal_newAccount - Creates a new account
-        let handler_clone = handler.clone();
-        io.add_method("personal_newAccount", move |params: jsonrpc_core::Params| {
-            // For personal_newAccount, we typically expect a password parameter
-            // However, since we're not implementing full wallet functionality,
-            // we'll just create an account with a random address
-            
-            // Generate a random address
-            let random_bytes = (0..20).map(|_| rand::random::<u8>()).collect::<Vec<_>>();
-            let address = format!("0x{}", hex::encode(random_bytes));
-            
-            // Create the account in UBI Chain
-            let result = handler_clone.rpc_handler.create_account(address.clone());
-            
-            if result.success {
-                future::ok(Value::String(address))
-            } else {
-                let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
-                future::err(Error::invalid_params(error_msg))
-            }
-        });
-
-        // personal_listAccounts - Lists all accounts
-        let handler_clone = handler.clone();
-        io.add_method("personal_listAccounts", move |_params| {
-            // In a real implementation, this would list all accounts managed by the node
-            // For now, we'll return an empty list
-            future::ok(Value::Array(vec![]))
-        });
-
-        // web3_clientVersion - Returns the current client version
-        io.add_method("web3_clientVersion", |_params| {
-            future::ok(Value::String("UBI-Chain/v0.1.0".to_string()))
-        });
-
-        // eth_getTokenInfo - Custom method to provide token information
-        io.add_method("eth_getTokenInfo", |_params| {
-            let token_info = json!({
-                "name": "Universal Basic Income",
-                "symbol": "UBI",
-                "decimals": 18,
-                "totalSupply": "0x0",
-                "description": "UBI Chain native token for universal basic income distribution"
-            });
-            future::ok(token_info)
-        });
-
-        // eth_call - Executes a new message call immediately without creating a transaction on the block chain
-        let _handler_clone = handler.clone();
-        io.add_method("eth_call", move |_params: jsonrpc_core::Params| {
-            // Return a placeholder response
-            future::ok(Value::String("0x".to_string()))
-        });
-
-        // eth_getCode - Returns code at a given address
-        let _handler_clone = handler.clone();
-        io.add_method("eth_getCode", move |_params: jsonrpc_core::Params| {
-            // Return empty code for now
-            future::ok(Value::String("0x".to_string()))
-        });
-
-        // eth_getLogs - Returns an array of all logs matching a given filter object
-        let _handler_clone = handler.clone();
-        io.add_method("eth_getLogs", move |_params: jsonrpc_core::Params| {
-            // Return an empty array for now
-            future::ok(Value::Array(vec![]))
-        });
-
-        // eth_getStorageAt - Returns the value from a storage position at a given address
-        let _handler_clone = handler.clone();
-        io.add_method("eth_getStorageAt", move |_params: jsonrpc_core::Params| {
-            // Return a placeholder storage value
-            future::ok(Value::String("0x0".to_string()))
-        });
-
-        // eth_syncing - Returns an object with data about the sync status or false
-        let _handler_clone = handler.clone();
-        io.add_method("eth_syncing", move |_params| {
-            // Return false indicating no sync in progress
-            future::ok(Value::Bool(false))
-        });
-
+        let handler = Arc::new(self);
+        let mut io = jsonrpc_core::IoHandler::new();
+        
+        // Register Ethereum-compatible methods
+        io.add_method("eth_chainId", clone_handler!(handler, eth_chain_id));
+        io.add_method("eth_blockNumber", clone_handler!(handler, eth_block_number));
+        io.add_method("eth_getBalance", clone_handler!(handler, eth_get_balance));
+        io.add_method("eth_sendTransaction", clone_handler!(handler, eth_send_transaction));
+        io.add_method("eth_getTransactionCount", clone_handler!(handler, eth_get_transaction_count));
+        io.add_method("eth_getBlockByNumber", clone_handler!(handler, eth_get_block_by_number));
+        io.add_method("eth_getBlockByHash", clone_handler!(handler, eth_get_block_by_hash));
+        io.add_method("eth_accounts", clone_handler!(handler, eth_accounts));
+        
         // Start the server
-        let server = ServerBuilder::new(io)
+        ServerBuilder::new(io)
+            .threads(4)
             .start_http(&addr)
-            .map_err(|e| Error::invalid_params(format!("Failed to start server: {}", e)))?;
-            
-        Ok(server)
+            .map_err(|_e| Error::invalid_request())
+    }
+    
+    /// Implements eth_getBalance
+    ///
+    /// Gets the balance of an account at a given block
+    ///
+    /// # Parameters
+    /// * `params` - [address, block_identifier]
+    ///
+    /// # Returns
+    /// The balance in wei (converted from UBI tokens)
+    pub fn eth_get_balance(&self, params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
+        let params = match params.parse::<Vec<Value>>() {
+            Ok(p) => p,
+            Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters")))),
+        };
+        
+        if params.len() < 1 {
+            return Box::pin(future::ready(Err(Error::invalid_params("Missing address parameter"))));
+        }
+        
+        let address = match params[0].as_str() {
+            Some(addr) => addr,
+            None => return Box::pin(future::ready(Err(Error::invalid_params("Invalid address format")))),
+        };
+        
+        if !is_valid_eth_address(address) {
+            return Box::pin(future::ready(Err(Error::invalid_params("Invalid Ethereum address"))));
+        }
+        
+        // Get balance from UBI Chain runtime
+        let balance = self.rpc_handler.get_account_info(address.to_string()).balance;
+        
+        // Convert to wei (1 UBI token = 10^18 wei for Ethereum compatibility)
+        let wei_balance = balance.saturating_mul(1_000_000_000_000_000_000);
+        
+        // Format as hex string with 0x prefix
+        let hex_balance = format!("0x{:x}", wei_balance);
+        
+        Box::pin(future::ready(Ok(Value::String(hex_balance))))
+    }
+    
+    /// Implements eth_sendTransaction
+    ///
+    /// Sends a transaction to the UBI Chain
+    ///
+    /// # Parameters
+    /// * `params` - [{from, to, value, ...}]
+    ///
+    /// # Returns
+    /// The transaction hash
+    pub fn eth_send_transaction(&self, params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
+        let params = match params.parse::<Vec<Value>>() {
+            Ok(p) => p,
+            Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters")))),
+        };
+        
+        if params.len() < 1 {
+            return Box::pin(future::ready(Err(Error::invalid_params("Missing transaction parameter"))));
+        }
+        
+        let tx_obj = match params[0].as_object() {
+            Some(obj) => obj,
+            None => return Box::pin(future::ready(Err(Error::invalid_params("Transaction must be an object")))),
+        };
+        
+        // Extract transaction parameters
+        let from = match tx_obj.get("from").and_then(|v| v.as_str()) {
+            Some(addr) => addr,
+            None => return Box::pin(future::ready(Err(Error::invalid_params("Missing 'from' address")))),
+        };
+        
+        let to = match tx_obj.get("to").and_then(|v| v.as_str()) {
+            Some(addr) => addr,
+            None => return Box::pin(future::ready(Err(Error::invalid_params("Missing 'to' address")))),
+        };
+        
+        // Validate addresses
+        if !is_valid_eth_address(from) || !is_valid_eth_address(to) {
+            return Box::pin(future::ready(Err(Error::invalid_params("Invalid Ethereum address"))));
+        }
+        
+        // Parse value (in wei)
+        let value_wei = match tx_obj.get("value") {
+            Some(val) => {
+                match val.as_str() {
+                    Some(hex_val) => {
+                        if hex_val.starts_with("0x") {
+                            match u64::from_str_radix(&hex_val[2..], 16) {
+                                Ok(v) => v,
+                                Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid value format")))),
+                            }
+                        } else {
+                            match hex_val.parse::<u64>() {
+                                Ok(v) => v,
+                                Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid value format")))),
+                            }
+                        }
+                    },
+                    None => match val.as_u64() {
+                        Some(v) => v,
+                        None => return Box::pin(future::ready(Err(Error::invalid_params("Invalid value format")))),
+                    }
+                }
+            },
+            None => 0, // Default to 0 if not specified
+        };
+        
+        // Convert from wei to UBI tokens (1 UBI token = 10^18 wei)
+        let value_ubi = value_wei / 1_000_000_000_000_000_000;
+        
+        // Execute the transfer
+        match self.rpc_handler.runtime.transfer_with_fee(from, to, value_ubi) {
+            Ok(_) => {
+                // Generate a transaction hash
+                let mut tx_hash = [0u8; 32];
+                rand::Rng::fill(&mut rand::thread_rng(), &mut tx_hash);
+                let tx_hash_hex = format!("0x{}", hex::encode(tx_hash));
+                
+                Box::pin(future::ready(Ok(Value::String(tx_hash_hex))))
+            },
+            Err(e) => {
+                let error_msg = match e {
+                    runtime::AccountError::AlreadyExists => "Account already exists",
+                    runtime::AccountError::InvalidAddress => "Invalid address",
+                    runtime::AccountError::Other(ref msg) => msg.as_str(),
+                };
+                
+                Box::pin(future::ready(Err(Error::invalid_params(error_msg))))
+            }
+        }
+    }
+    
+    /// Implements eth_getTransactionCount
+    ///
+    /// Gets the number of transactions sent from an address
+    /// (In UBI Chain, we don't track nonces, so this is a placeholder)
+    ///
+    /// # Parameters
+    /// * `params` - [address, block_identifier]
+    ///
+    /// # Returns
+    /// The transaction count as a hex string
+    pub fn eth_get_transaction_count(&self, params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
+        let params = match params.parse::<Vec<Value>>() {
+            Ok(p) => p,
+            Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters")))),
+        };
+        
+        if params.len() < 1 {
+            return Box::pin(future::ready(Err(Error::invalid_params("Missing address parameter"))));
+        }
+        
+        let address = match params[0].as_str() {
+            Some(addr) => addr,
+            None => return Box::pin(future::ready(Err(Error::invalid_params("Invalid address format")))),
+        };
+        
+        if !is_valid_eth_address(address) {
+            return Box::pin(future::ready(Err(Error::invalid_params("Invalid Ethereum address"))));
+        }
+        
+        // In UBI Chain, we don't track nonces, so return 0
+        Box::pin(future::ready(Ok(Value::String("0x0".to_string()))))
+    }
+    
+    /// Implements eth_chainId
+    ///
+    /// Returns the chain ID used for signing replay-protected transactions
+    ///
+    /// # Returns
+    /// The chain ID as a hex string
+    pub fn eth_chain_id(&self, _params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
+        let chain_id = format!("0x{:x}", self.chain_id);
+        Box::pin(future::ready(Ok(Value::String(chain_id))))
+    }
+    
+    /// Implements eth_blockNumber
+    ///
+    /// Returns the current block number
+    ///
+    /// # Returns
+    /// The current block number as a hex string
+    pub fn eth_block_number(&self, _params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
+        Box::pin(future::ready(Ok(Value::String("0x1".to_string()))))
+    }
+    
+    /// Implements eth_getBlockByNumber
+    ///
+    /// Returns information about a block by block number
+    ///
+    /// # Parameters
+    /// * `params` - [block_number, include_transactions]
+    ///
+    /// # Returns
+    /// Block information
+    pub fn eth_get_block_by_number(&self, params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
+        let params = match params.parse::<Vec<Value>>() {
+            Ok(p) => p,
+            Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters")))),
+        };
+        
+        if params.len() < 1 {
+            return Box::pin(future::ready(Err(Error::invalid_params("Missing block number parameter"))));
+        }
+        
+        // Create a mock block response
+        let block = json!({
+            "number": "0x1",
+            "hash": format!("0x{}", hex::encode([1u8; 32])),
+            "parentHash": format!("0x{}", hex::encode([0u8; 32])),
+            "nonce": "0x0000000000000000",
+            "sha3Uncles": format!("0x{}", hex::encode([0u8; 32])),
+            "logsBloom": format!("0x{}", hex::encode([0u8; 32])),
+            "transactionsRoot": format!("0x{}", hex::encode([0u8; 32])),
+            "stateRoot": format!("0x{}", hex::encode([0u8; 32])),
+            "receiptsRoot": format!("0x{}", hex::encode([0u8; 32])),
+            "miner": "0x0000000000000000000000000000000000000000",
+            "difficulty": "0x0",
+            "totalDifficulty": "0x0",
+            "extraData": "0x",
+            "size": "0x1000",
+            "gasLimit": "0x1000000",
+            "gasUsed": "0x0",
+            "timestamp": "0x5f5e100",
+            "transactions": [],
+            "uncles": []
+        });
+        
+        Box::pin(future::ready(Ok(block)))
+    }
+    
+    /// Implements eth_getBlockByHash
+    ///
+    /// Returns information about a block by hash
+    ///
+    /// # Parameters
+    /// * `params` - [block_hash, include_transactions]
+    ///
+    /// # Returns
+    /// Block information
+    pub fn eth_get_block_by_hash(&self, params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
+        let params = match params.parse::<Vec<Value>>() {
+            Ok(p) => p,
+            Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters")))),
+        };
+        
+        if params.len() < 1 {
+            return Box::pin(future::ready(Err(Error::invalid_params("Missing block hash parameter"))));
+        }
+        
+        // Create a mock block response (same as eth_getBlockByNumber)
+        let block = json!({
+            "number": "0x1",
+            "hash": format!("0x{}", hex::encode([1u8; 32])),
+            "parentHash": format!("0x{}", hex::encode([0u8; 32])),
+            "nonce": "0x0000000000000000",
+            "sha3Uncles": format!("0x{}", hex::encode([0u8; 32])),
+            "logsBloom": format!("0x{}", hex::encode([0u8; 32])),
+            "transactionsRoot": format!("0x{}", hex::encode([0u8; 32])),
+            "stateRoot": format!("0x{}", hex::encode([0u8; 32])),
+            "receiptsRoot": format!("0x{}", hex::encode([0u8; 32])),
+            "miner": "0x0000000000000000000000000000000000000000",
+            "difficulty": "0x0",
+            "totalDifficulty": "0x0",
+            "extraData": "0x",
+            "size": "0x1000",
+            "gasLimit": "0x1000000",
+            "gasUsed": "0x0",
+            "timestamp": "0x5f5e100",
+            "transactions": [],
+            "uncles": []
+        });
+        
+        Box::pin(future::ready(Ok(block)))
+    }
+    
+    /// Implements eth_accounts
+    ///
+    /// Returns a list of addresses owned by client
+    ///
+    /// # Returns
+    /// Array of addresses
+    pub fn eth_accounts(&self, _params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
+        let mock_address = "0x0000000000000000000000000000000000000001";
+        Box::pin(future::ready(Ok(Value::Array(vec![Value::String(mock_address.to_string())]))))
     }
 } 

@@ -9,7 +9,7 @@
 //! - AI resource management
 //! - Network status information
 
-use runtime::{Runtime, Account, AccountError};
+use runtime::{Runtime, AccountError};
 use serde::{Deserialize, Serialize};
 
 // Add Ethereum compatibility module
@@ -58,36 +58,41 @@ pub struct CreateAccountResponse {
     error: Option<String>,
 }
 
-/// RPC handler for processing external requests
+/// RPC handler for UBI Chain
 ///
-/// This struct provides methods for handling JSON-RPC requests
-/// and interacting with the blockchain runtime.
-///
-/// # Features
-/// - Account information queries
-/// - Balance checks
-/// - Verification status
-/// - Transaction processing
-/// - UBI claims
-/// - AI resource allocation
+/// This struct provides methods for handling RPC requests
+/// to the UBI Chain node.
 #[derive(Clone)]
 pub struct RpcHandler {
     /// Reference to the blockchain runtime
-    runtime: Runtime,
+    pub runtime: Runtime,
 }
 
 impl RpcHandler {
-    /// Creates a new RPC handler instance
+    /// Creates a new RPC handler
     ///
     /// # Arguments
-    /// * `runtime` - The blockchain runtime instance to handle requests
+    /// * `runtime` - The blockchain runtime
     ///
     /// # Returns
-    /// A new RpcHandler instance connected to the runtime
+    /// A new RPC handler instance
     pub fn new(runtime: Runtime) -> Self {
         RpcHandler {
             runtime,
         }
+    }
+    
+    /// Starts an Ethereum-compatible JSON-RPC server
+    ///
+    /// # Arguments
+    /// * `addr` - The address to bind the server to (e.g., "127.0.0.1:8545")
+    /// * `chain_id` - The chain ID to use for Ethereum compatibility
+    ///
+    /// # Returns
+    /// Result containing the server instance or an error
+    pub fn start_eth_rpc_server(&self, addr: &str, chain_id: u64) -> Result<jsonrpc_http_server::Server, String> {
+        let eth_handler = eth_compat::EthRpcHandler::new(self.clone(), chain_id);
+        eth_handler.start_server(addr).map_err(|e| format!("Failed to start RPC server: {:?}", e))
     }
 
     /// Retrieves account information for a given address

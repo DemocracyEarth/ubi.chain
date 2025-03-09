@@ -7,4 +7,5 @@ description = "Runtime logic for the UBI Chain"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0" 
+serde_json = "1.0"
+sha2 = "0.10.6" 
