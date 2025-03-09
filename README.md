@@ -145,13 +145,19 @@ UBI Chain provides Ethereum JSON-RPC compatibility, allowing you to connect stan
 
 ### Running Tests
 
-```bash
-# Run all tests
-cargo test --all
+We provide a comprehensive testing framework for UBI Chain:
 
-# Run specific test
-cargo test -p node
+```bash
+# Run all tests with the test script
+./run_tests.sh
+
+# Run specific package tests
+cargo test -p ubi-chain-runtime
+cargo test -p ubi-chain-rpc
+cargo test -p ubi-chain-node
 ```
+
+For detailed testing documentation, see [Testing Guide](docs/testing.md).
 
 ### Code Style
 
