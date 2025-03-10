@@ -1,0 +1,9 @@
+[package]
+name = "cors-test"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+jsonrpc-http-server = "18.0.0"
+jsonrpc-core = "18.0.0"

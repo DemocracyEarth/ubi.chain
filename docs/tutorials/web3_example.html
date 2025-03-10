@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UBI Chain - Web3.js Example</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px 0;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .result {
+            background-color: #f1f1f1;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .error {
+            color: #e74c3c;
+        }
+        .success {
+            color: #27ae60;
+        }
+        code {
+            background-color: #f8f8f8;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+    <!-- Include Web3.js -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
+</head>
+<body>
+    <h1>UBI Chain - Web3.js Example</h1>
+    
+    <div class="container">
+        <h2>Connect to Web3</h2>
+        <button id="connectWeb3Button">Connect Web3</button>
+        <div id="web3Status" class="result">Not connected</div>
+    </div>
+    
+    <div class="container">
+        <h2>Account Information</h2>
+        <div id="accountsInfo" class="result">No accounts connected</div>
+    </div>
+    
+    <div class="container">
+        <h2>Chain Information</h2>
+        <button id="getChainInfoButton">Get Chain Info</button>
+        <div id="chainInfo" class="result">No chain info</div>
+    </div>
+    
+    <div class="container">
+        <h2>Send Transaction</h2>
+        <div>
+            <label for="toAddress">To Address:</label>
+            <input type="text" id="toAddress" placeholder="0x...">
+        </div>
+        <div>
+            <label for="amount">Amount (in UBI tokens):</label>
+            <input type="number" id="amount" placeholder="1" min="0" step="0.01">
+        </div>
+        <button id="sendButton">Send Transaction</button>
+        <div id="transactionResult" class="result">No transaction sent</div>
+    </div>
+    
+    <div class="container">
+        <h2>Code Examples</h2>
+        <h3>Connect to Web3</h3>
+        <pre><code>// Connect to Web3 using MetaMask
+const web3 = new Web3(window.ethereum);
+await window.ethereum.request({ method: 'eth_requestAccounts' });</code></pre>
+        
+        <h3>Get Accounts</h3>
+        <pre><code>// Get accounts
+const accounts = await web3.eth.getAccounts();
+console.log('Accounts:', accounts);</code></pre>
+        
+        <h3>Get Balance</h3>
+        <pre><code>// Get balance
+const balance = await web3.eth.getBalance(accounts[0]);
+console.log('Balance:', web3.utils.fromWei(balance, 'ether'), 'UBI');</code></pre>
+        
+        <h3>Send Transaction</h3>
+        <pre><code>// Send transaction
+const tx = await web3.eth.sendTransaction({
+  from: accounts[0],
+  to: '0xRecipientAddress',
+  value: web3.utils.toWei('1', 'ether'),
+  gas: 21000,
+  gasPrice: '1000000000' // 1 Gwei
+});
+console.log('Transaction:', tx);</code></pre>
+    </div>
+
+    <script>
+        // Elements
+        const connectWeb3Button = document.getElementById('connectWeb3Button');
+        const web3Status = document.getElementById('web3Status');
+        const accountsInfo = document.getElementById('accountsInfo');
+        const getChainInfoButton = document.getElementById('getChainInfoButton');
+        const chainInfo = document.getElementById('chainInfo');
+        const sendButton = document.getElementById('sendButton');
+        const toAddressInput = document.getElementById('toAddress');
+        const amountInput = document.getElementById('amount');
+        const transactionResult = document.getElementById('transactionResult');
+        
+        // Variables
+        let web3;
+        let accounts = [];
+        
+        // Check if MetaMask is installed
+        if (typeof window.ethereum === 'undefined') {
+            console.warn('MetaMask is not installed. Some features may not work properly.');
+        }
+        
+        // Connect to Web3
+        connectWeb3Button.addEventListener('click', async () => {
+            try {
+                // Check if MetaMask is installed
+                if (typeof window.ethereum === 'undefined') {
+                    throw new Error('MetaMask is not installed. Please install MetaMask and refresh the page.');
+                }
+                
+                // Initialize Web3
+                web3 = new Web3(window.ethereum);
+                
+                // Request accounts
+                accounts = await web3.eth.requestAccounts();
+                
+                web3Status.textContent = `Connected to Web3 via ${window.ethereum.isMetaMask ? 'MetaMask' : 'an Ethereum provider'}`;
+                web3Status.classList.add('success');
+                
+                // Update accounts info
+                updateAccountsInfo();
+            } catch (error) {
+                web3Status.textContent = `Error connecting to Web3: ${error.message}`;
+                web3Status.classList.add('error');
+                console.error('Web3 connection error:', error);
+            }
+        });
+        
+        // Update accounts information
+        async function updateAccountsInfo() {
+            if (!web3 || accounts.length === 0) {
+                accountsInfo.textContent = 'No accounts connected';
+                return;
+            }
+            
+            try {
+                let accountsText = '';
+                
+                for (const account of accounts) {
+                    const balance = await web3.eth.getBalance(account);
+                    const balanceInEther = web3.utils.fromWei(balance, 'ether');
+                    
+                    accountsText += `Address: ${account}\nBalance: ${balanceInEther} UBI\n\n`;
+                }
+                
+                accountsInfo.textContent = accountsText.trim();
+                accountsInfo.classList.add('success');
+            } catch (error) {
+                accountsInfo.textContent = `Error getting accounts info: ${error.message}`;
+                accountsInfo.classList.add('error');
+                console.error('Account info error:', error);
+            }
+        }
+        
+        // Get chain information
+        getChainInfoButton.addEventListener('click', async () => {
+            if (!web3) {
+                chainInfo.textContent = 'Please connect to Web3 first';
+                chainInfo.classList.add('error');
+                return;
+            }
+            
+            try {
+                const chainId = await web3.eth.getChainId();
+                const blockNumber = await web3.eth.getBlockNumber();
+                const gasPrice = await web3.eth.getGasPrice();
+                const gasPriceInGwei = web3.utils.fromWei(gasPrice, 'gwei');
+                
+                chainInfo.textContent = `Chain ID: ${chainId}\nLatest Block: ${blockNumber}\nGas Price: ${gasPriceInGwei} Gwei`;
+                chainInfo.classList.add('success');
+            } catch (error) {
+                chainInfo.textContent = `Error getting chain info: ${error.message}`;
+                chainInfo.classList.add('error');
+                console.error('Chain info error:', error);
+            }
+        });
+        
+        // Send transaction
+        sendButton.addEventListener('click', async () => {
+            if (!web3 || accounts.length === 0) {
+                transactionResult.textContent = 'Please connect to Web3 first';
+                transactionResult.classList.add('error');
+                return;
+            }
+            
+            const toAddress = toAddressInput.value;
+            const amount = amountInput.value;
+            
+            if (!toAddress || !amount) {
+                transactionResult.textContent = 'Please enter a valid address and amount';
+                transactionResult.classList.add('error');
+                return;
+            }
+            
+            try {
+                transactionResult.textContent = 'Sending transaction...';
+                
+                const amountInWei = web3.utils.toWei(amount, 'ether');
+                
+                const tx = await web3.eth.sendTransaction({
+                    from: accounts[0],
+                    to: toAddress,
+                    value: amountInWei,
+                    gas: 21000,
+                    gasPrice: web3.utils.toWei('1', 'gwei')
+                });
+                
+                transactionResult.textContent = `Transaction sent!\nTransaction Hash: ${tx.transactionHash}\nBlock Number: ${tx.blockNumber}`;
+                transactionResult.classList.remove('error');
+                transactionResult.classList.add('success');
+                
+                // Update accounts info after transaction
+                setTimeout(updateAccountsInfo, 2000);
+            } catch (error) {
+                transactionResult.textContent = `Error sending transaction: ${error.message}`;
+                transactionResult.classList.add('error');
+                console.error('Transaction error:', error);
+            }
+        });
+        
+        // Listen for account changes
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', (newAccounts) => {
+                accounts = newAccounts;
+                updateAccountsInfo();
+            });
+            
+            window.ethereum.on('chainChanged', () => {
+                window.location.reload();
+            });
+        }
+        
+        // Add a message at the top of the page if MetaMask is not detected
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof window.ethereum === 'undefined') {
+                const warningDiv = document.createElement('div');
+                warningDiv.style.backgroundColor = '#ffcccc';
+                warningDiv.style.padding = '15px';
+                warningDiv.style.marginBottom = '20px';
+                warningDiv.style.borderRadius = '5px';
+                warningDiv.innerHTML = `
+                    <strong>MetaMask Not Detected!</strong>
+                    <p>This application requires MetaMask to function properly. Please:</p>
+                    <ol>
+                        <li>Install the <a href="https://metamask.io/download.html" target="_blank">MetaMask browser extension</a></li>
+                        <li>Refresh this page after installation</li>
+                        <li>Make sure MetaMask is unlocked</li>
+                    </ol>
+                    <p>If you already have MetaMask installed, try:</p>
+                    <ul>
+                        <li>Refreshing the page</li>
+                        <li>Unlocking your MetaMask wallet</li>
+                        <li>Checking if MetaMask is enabled for this page</li>
+                    </ul>
+                `;
+                document.body.insertBefore(warningDiv, document.body.firstChild);
+            }
+        });
+    </script>
+</body>
+</html> 

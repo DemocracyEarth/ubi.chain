@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UBI Chain Simple Faucet</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px 0;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .result {
+            background-color: #f1f1f1;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .error {
+            color: #e74c3c;
+        }
+        .success {
+            color: #27ae60;
+        }
+        .warning {
+            background-color: #fffacd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            border-left: 4px solid #f39c12;
+        }
+    </style>
+</head>
+<body>
+    <h1>UBI Chain Simple Faucet</h1>
+    
+    <div class="warning">
+        <strong>Note:</strong> This faucet only works with the local UBI Chain network. Make sure your MetaMask is connected to the UBI Chain network (Chain ID: 2030).
+    </div>
+    
+    <div class="container">
+        <h2>Connect to MetaMask</h2>
+        <button id="connectButton">Connect MetaMask</button>
+        <div id="connectionStatus" class="result">Not connected</div>
+    </div>
+    
+    <div class="container">
+        <h2>Account Information</h2>
+        <div id="accountInfo" class="result">No account connected</div>
+    </div>
+    
+    <div class="container">
+        <h2>Get Test Tokens</h2>
+        <p>Enter your MetaMask address and click the button to get 100 UBI test tokens.</p>
+        <div>
+            <label for="addressInput">Your MetaMask Address:</label>
+            <input type="text" id="addressInput" placeholder="0x...">
+        </div>
+        <button id="getTokensButton">Get Test Tokens</button>
+        <div id="getTokensResult" class="result">No request sent</div>
+    </div>
+
+    <script>
+        // Elements
+        const connectButton = document.getElementById('connectButton');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const accountInfo = document.getElementById('accountInfo');
+        const addressInput = document.getElementById('addressInput');
+        const getTokensButton = document.getElementById('getTokensButton');
+        const getTokensResult = document.getElementById('getTokensResult');
+
+        // Variables
+        let accounts = [];
+        let chainId = null;
+
+        // Connect to MetaMask
+        connectButton.addEventListener('click', async () => {
+            try {
+                // Check if MetaMask is installed
+                if (typeof window.ethereum === 'undefined') {
+                    throw new Error('MetaMask is not installed. Please install MetaMask and refresh the page.');
+                }
+                
+                // Request accounts
+                accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                
+                // Check if connected to UBI Chain
+                if (chainId !== '0x7ee') { // 2030 in hex
+                    connectionStatus.textContent = `Warning: You are not connected to UBI Chain. Please switch to Chain ID 2030.`;
+                    connectionStatus.className = 'result error';
+                } else {
+                    connectionStatus.textContent = `Connected to MetaMask on UBI Chain (Chain ID: 2030)`;
+                    connectionStatus.className = 'result success';
+                }
+                
+                // Fill the address input with the connected account
+                if (accounts.length > 0) {
+                    addressInput.value = accounts[0];
+                }
+                
+                updateAccountInfo();
+            } catch (error) {
+                connectionStatus.textContent = `Error connecting to MetaMask: ${error.message}`;
+                connectionStatus.className = 'result error';
+                console.error('MetaMask connection error:', error);
+            }
+        });
+
+        // Update account information
+        async function updateAccountInfo() {
+            if (accounts.length === 0) {
+                accountInfo.textContent = 'No account connected';
+                return;
+            }
+
+            const account = accounts[0];
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    throw new Error('MetaMask is not installed');
+                }
+                
+                const balance = await window.ethereum.request({
+                    method: 'eth_getBalance',
+                    params: [account, 'latest']
+                });
+                
+                // Convert balance from wei to UBI tokens (1 UBI = 10^18 wei)
+                const balanceInWei = parseInt(balance, 16);
+                const balanceInUBI = balanceInWei / 1000000000000000000;
+                
+                accountInfo.textContent = `Address: ${account}\nBalance: ${balanceInUBI} UBI`;
+                accountInfo.className = 'result success';
+            } catch (error) {
+                accountInfo.textContent = `Error getting account info: ${error.message}`;
+                accountInfo.className = 'result error';
+                console.error('Account info error:', error);
+            }
+        }
+
+        // Get test tokens
+        getTokensButton.addEventListener('click', async () => {
+            const address = addressInput.value.trim();
+            
+            if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
+                getTokensResult.textContent = 'Please enter a valid Ethereum address';
+                getTokensResult.className = 'result error';
+                return;
+            }
+
+            try {
+                getTokensResult.textContent = 'Requesting test tokens...';
+                
+                // Create the JSON-RPC request
+                const rpcRequest = {
+                    jsonrpc: '2.0',
+                    method: 'eth_sendTransaction',
+                    params: [{
+                        from: '0x1111111111111111111111111111111111111111',
+                        to: address,
+                        value: '0x' + BigInt(100 * 1000000000000000000n).toString(16),
+                        gas: '0x5208', // 21000 gas
+                        gasPrice: '0x3b9aca00', // 1 Gwei
+                    }],
+                    id: 1
+                };
+                
+                // Send the request to the RPC endpoint
+                const response = await fetch('http://localhost:8545', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(rpcRequest)
+                });
+                
+                const data = await response.json();
+                
+                if (data.result) {
+                    getTokensResult.textContent = `Test tokens sent!\nTransaction Hash: ${data.result}\nRecipient: ${address}`;
+                    getTokensResult.className = 'result success';
+                    
+                    // Update account info if the recipient is the connected account
+                    if (accounts.length > 0 && accounts[0].toLowerCase() === address.toLowerCase()) {
+                        setTimeout(updateAccountInfo, 2000);
+                    }
+                } else if (data.error) {
+                    getTokensResult.textContent = `Error: ${data.error.message}`;
+                    getTokensResult.className = 'result error';
+                } else {
+                    getTokensResult.textContent = `Unknown error occurred`;
+                    getTokensResult.className = 'result error';
+                }
+            } catch (error) {
+                getTokensResult.textContent = `Error requesting tokens: ${error.message}`;
+                getTokensResult.className = 'result error';
+                console.error('Token request error:', error);
+            }
+        });
+
+        // Listen for account changes
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', (newAccounts) => {
+                accounts = newAccounts;
+                
+                // Update the address input with the new account
+                if (newAccounts.length > 0) {
+                    addressInput.value = newAccounts[0];
+                }
+                
+                updateAccountInfo();
+            });
+
+            window.ethereum.on('chainChanged', (newChainId) => {
+                chainId = newChainId;
+                
+                // Check if connected to UBI Chain
+                if (chainId !== '0x7ee') { // 2030 in hex
+                    connectionStatus.textContent = `Warning: You are not connected to UBI Chain. Please switch to Chain ID 2030.`;
+                    connectionStatus.className = 'result error';
+                } else {
+                    connectionStatus.textContent = `Connected to MetaMask on UBI Chain (Chain ID: 2030)`;
+                    connectionStatus.className = 'result success';
+                }
+                
+                updateAccountInfo();
+            });
+        }
+        
+        // Add a message at the top of the page if MetaMask is not detected
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof window.ethereum === 'undefined') {
+                const warningDiv = document.createElement('div');
+                warningDiv.style.backgroundColor = '#ffcccc';
+                warningDiv.style.padding = '15px';
+                warningDiv.style.marginBottom = '20px';
+                warningDiv.style.borderRadius = '5px';
+                warningDiv.innerHTML = `
+                    <strong>MetaMask Not Detected!</strong>
+                    <p>This application requires MetaMask to function properly. Please:</p>
+                    <ol>
+                        <li>Install the <a href="https://metamask.io/download.html" target="_blank">MetaMask browser extension</a></li>
+                        <li>Refresh this page after installation</li>
+                        <li>Make sure MetaMask is unlocked</li>
+                    </ol>
+                    <p>If you already have MetaMask installed, try:</p>
+                    <ul>
+                        <li>Refreshing the page</li>
+                        <li>Unlocking your MetaMask wallet</li>
+                        <li>Checking if MetaMask is enabled for this page</li>
+                    </ul>
+                `;
+                document.body.insertBefore(warningDiv, document.body.firstChild);
+            }
+        });
+    </script>
+</body>
+</html> 

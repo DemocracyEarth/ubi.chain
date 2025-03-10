@@ -58,6 +58,22 @@ pub struct CreateAccountResponse {
     error: Option<String>,
 }
 
+/// Response for faucet requests
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FaucetResponse {
+    /// Success status
+    pub success: bool,
+    
+    /// Amount of tokens sent
+    pub amount: Option<u64>,
+    
+    /// New balance after faucet distribution
+    pub new_balance: Option<u64>,
+    
+    /// Error message if unsuccessful
+    pub error: Option<String>,
+}
+
 /// RPC handler for UBI Chain
 ///
 /// This struct provides methods for handling RPC requests
@@ -180,6 +196,67 @@ impl RpcHandler {
         }
     }
 
+    /// Handles faucet requests to distribute testnet tokens
+    ///
+    /// # Arguments
+    /// * `address` - The address to send tokens to
+    /// * `amount` - Optional amount to request (defaults to 10 tokens if not specified)
+    ///
+    /// # Returns
+    /// A response indicating success or failure
+    pub fn request_from_faucet(&self, address: String, amount: Option<u64>) -> FaucetResponse {
+        // Default amount is 10 tokens
+        let tokens_to_send = amount.unwrap_or(10);
+        
+        // Maximum amount per request is 100 tokens
+        let tokens_to_send = std::cmp::min(tokens_to_send, 100);
+        
+        // Check if the account exists, create it if it doesn't
+        let account_exists = self.runtime.get_balance(&address) > 0 || 
+                             self.runtime.is_account_verified(&address);
+        
+        if !account_exists {
+            match self.runtime.create_account(&address) {
+                Err(e) => {
+                    return FaucetResponse {
+                        success: false,
+                        amount: None,
+                        new_balance: None,
+                        error: Some(format!("Failed to create account: {}", e)),
+                    };
+                },
+                Ok(_) => {
+                    // Account created successfully
+                }
+            }
+        }
+        
+        // Create a faucet account if it doesn't exist
+        let faucet_address = "0xFAUCET00000000000000000000000000000000000";
+        let _ = self.runtime.create_account(faucet_address);
+        
+        // Transfer tokens from the faucet to the requested address
+        match self.runtime.transfer_with_fee(faucet_address, &address, tokens_to_send) {
+            Ok(_) => {
+                let new_balance = self.runtime.get_balance(&address);
+                FaucetResponse {
+                    success: true,
+                    amount: Some(tokens_to_send),
+                    new_balance: Some(new_balance),
+                    error: None,
+                }
+            },
+            Err(e) => {
+                FaucetResponse {
+                    success: false,
+                    amount: None,
+                    new_balance: None,
+                    error: Some(format!("Failed to transfer tokens: {}", e)),
+                }
+            }
+        }
+    }
+
     // TODO: Implement additional RPC methods:
     // - submit_transaction(): Submit a new transaction
     // - claim_ubi(): Process UBI claims
@@ -198,9 +275,18 @@ mod tests {
         let runtime = Runtime::new();
         let handler = RpcHandler::new(runtime);
         
-        let info = handler.get_account_info("test_address".to_string());
-        assert_eq!(info.balance, 0); // New accounts start with 0 balance
-        assert!(!info.verified); // New accounts start unverified
+        // For a non-existent account
+        let info = handler.get_account_info("0x1234567890abcdef1234567890abcdef12345678".to_string());
+        assert_eq!(info.balance, 0); // Non-existent accounts have 0 balance
+        assert!(!info.verified); // Non-existent accounts are not verified
+        
+        // Create an account and check its info
+        let valid_address = "0x1234567890abcdef1234567890abcdef12345678";
+        let _ = handler.create_account(valid_address.to_string());
+        
+        let info = handler.get_account_info(valid_address.to_string());
+        assert_eq!(info.balance, 10); // Initial balance is 10 tokens
+        assert!(info.verified); // Accounts are auto-verified
     }
     
     #[test]
@@ -217,8 +303,8 @@ mod tests {
         
         let account_info = response.account.unwrap();
         assert_eq!(account_info.address, valid_address);
-        assert_eq!(account_info.balance, 0);
-        assert!(!account_info.verified);
+        assert_eq!(account_info.balance, 10); // Initial balance is 10 tokens
+        assert!(account_info.verified); // Accounts are auto-verified
         
         // Test duplicate address
         let duplicate_response = handler.create_account(valid_address.to_string());
@@ -234,5 +320,40 @@ mod tests {
         assert!(invalid_response.account.is_none());
         assert!(invalid_response.error.is_some());
         assert_eq!(invalid_response.error.unwrap(), "Invalid address format");
+    }
+    
+    #[test]
+    fn test_faucet() {
+        let runtime = Runtime::new();
+        let handler = RpcHandler::new(runtime);
+        
+        // Test requesting tokens for a new account
+        let address = "0x1234567890abcdef1234567890abcdef12345678";
+        let response = handler.request_from_faucet(address.to_string(), Some(50));
+        
+        assert!(response.success);
+        assert_eq!(response.amount, Some(50));
+        assert!(response.new_balance.is_some());
+        assert!(response.error.is_none());
+        
+        // The account should now have 50 tokens (plus the 10 initial tokens)
+        let balance = handler.runtime.get_balance(address);
+        assert_eq!(balance, 60);
+        
+        // Test requesting tokens for an existing account
+        let response2 = handler.request_from_faucet(address.to_string(), Some(30));
+        
+        assert!(response2.success);
+        assert_eq!(response2.amount, Some(30));
+        assert_eq!(response2.new_balance, Some(90)); // 60 + 30 = 90
+        assert!(response2.error.is_none());
+        
+        // Test requesting more than the maximum allowed
+        let response3 = handler.request_from_faucet(address.to_string(), Some(200));
+        
+        assert!(response3.success);
+        assert_eq!(response3.amount, Some(100)); // Should be capped at 100
+        assert_eq!(response3.new_balance, Some(190)); // 90 + 100 = 190
+        assert!(response3.error.is_none());
     }
 } 

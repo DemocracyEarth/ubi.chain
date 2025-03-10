@@ -1,0 +1,25 @@
+Traceback (most recent call last):
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/runpy.py", line 197, in _run_module_as_main
+    return _run_code(code, main_glob::1 - - [09/Mar/2025 22:14:02] "GET /docs/tutorials/metamask_integration.html HTTP/1.1" 304 -
+::1 - - [09/Mar/2025 22:14:03] "GET /docs/tutorials/metamask_integration.html HTTP/1.1" 304 -
+::1 - - [09/Mar/2025 22:14:18] "GET /docs/tutorials/token_faucet.html HTTP/1.1" 200 -
+::1 - - [09/Mar/2025 22:14:28] code 501, message Unsupported method ('POST')
+::1 - - [09/Mar/2025 22:14:28] "POST /api/faucet HTTP/1.1" 501 -
+::1 - - [09/Mar/2025 22:14:37] code 501, message Unsupported method ('POST')
+::1 - - [09/Mar/2025 22:14:37] "POST /api/faucet HTTP/1.1" 501 -
+::1 - - [09/Mar/2025 22:19:45] "GET /docs/tutorials/simple_faucet.html HTTP/1.1" 200 -
+::1 - - [09/Mar/2025 22:24:47] "GET /docs/tutorials/minimal_faucet.html HTTP/1.1" 200 -
+::1 - - [09/Mar/2025 22:54:52] "GET /docs/tutorials/metamask_integration.html HTTP/1.1" 304 -
+::1 - - [09/Mar/2025 22:54:57] "GET /docs/tutorials/minimal_faucet.html HTTP/1.1" 304 -
+::1 - - [09/Mar/2025 22:57:09] "GET /docs/tutorials/minimal_faucet.html HTTP/1.1" 200 -
+::1 - - [09/Mar/2025 22:57:54] "GET /docs/tutorials/minimal_faucet.html HTTP/1.1" 200 -
+::1 - - [09/Mar/2025 22:58:49] "GET /docs/tutorials/minimal_faucet.html HTTP/1.1" 200 -
+::1 - - [09/Mar/2025 23:01:05] "GET /docs/tutorials/minimal_faucet.html HTTP/1.1" 304 -
+::1 - - [09/Mar/2025 23:02:09] code 404, message File not found
+::1 - - [09/Mar/2025 23:02:09] "GET /minimal_faucet.html HTTP/1.1" 404 -
+::1 - - [09/Mar/2025 23:02:21] "GET /docs/tutorials/minimal_faucet.html HTTP/1.1" 200 -
+::1 - - [09/Mar/2025 23:02:59] "GET /docs/tutorials/minimal_faucet.html HTTP/1.1" 200 -
+::1 - - [09/Mar/2025 23:03:00] "GET /docs/tutorials/minimal_faucet.html HTTP/1.1" 304 -
+::1 - - [09/Mar/2025 23:03:51] "GET /docs/tutorials/minimal_faucet.html HTTP/1.1" 200 -
+::1 - - [09/Mar/2025 23:04:31] "GET /docs/tutorials/minimal_faucet.html HTTP/1.1" 200 -
+::1 - - [09/Mar/2025 23:07:34] "GET /docs/tutorials/minimal_faucet.html HTTP/1.1" 200 -

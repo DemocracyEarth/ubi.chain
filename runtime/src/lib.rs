@@ -30,6 +30,10 @@ const UBI_TOKENS_PER_HOUR: u64 = 1;
 // Constants for the dividend system
 const DIVIDEND_PRECISION: u64 = 1_000_000_000; // 10^9 precision for dividend calculations
 
+// Constants for the testnet faucet
+const FAUCET_ADDRESS: &str = "0xFAUCET00000000000000000000000000000000000";
+const FAUCET_MIN_BALANCE: u64 = 1_000_000; // Ensure faucet always has at least 1 million tokens
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -547,7 +551,7 @@ pub struct Runtime {
     /// Tracks the last dividend per token value seen by each account
     last_dividend_points: Arc<std::sync::Mutex<HashMap<String, u64>>>,
     
-    /// Tracks unclaimed dividends for each account
+    /// Unclaimed dividends for each account
     unclaimed_dividends: Arc<std::sync::Mutex<HashMap<String, u64>>>,
     
     /// Merkle tree for state verification
@@ -623,15 +627,18 @@ impl Runtime {
     /// # Returns
     /// The current balance in UBI tokens, or 0 if account doesn't exist
     pub fn get_balance(&self, address: &str) -> u64 {
-        // Update UBI balance before returning
-        self.update_ubi_balance(address);
+        // Special case for faucet address - always return a large balance
+        if address == FAUCET_ADDRESS {
+            return FAUCET_MIN_BALANCE;
+        }
         
-        self.accounts
-            .lock()
-            .unwrap()
-            .get(address)
-            .map(|account| account.balance)
-            .unwrap_or(0)
+        let accounts = self.accounts.lock().unwrap();
+        
+        if let Some(account) = accounts.get(address) {
+            account.balance
+        } else {
+            0
+        }
     }
 
     /// Checks if an account has passed human verification
@@ -902,71 +909,54 @@ impl Runtime {
         }
     }
 
-    /// Transfers tokens from one account to another, deducting a 1% fee
-    /// that is added to the global fee pool.
+    /// Transfers tokens from one account to another with a fee
     ///
     /// # Arguments
-    /// * `from_address` - The sender's account address
-    /// * `to_address` - The recipient's account address
-    /// * `amount` - The amount of tokens to transfer
+    /// * `from_address` - The sender's address
+    /// * `to_address` - The recipient's address
+    /// * `amount` - The amount to transfer
     ///
     /// # Returns
-    /// * `Ok(())` if the transfer was successful
-    /// * `Err(AccountError)` if the transfer failed
+    /// Result indicating success or an error
     pub fn transfer_with_fee(&self, from_address: &str, to_address: &str, amount: u64) -> Result<(), AccountError> {
-        // Validate addresses
-        if !is_valid_eth_address(from_address) || !is_valid_eth_address(to_address) {
-            return Err(AccountError::InvalidAddress);
-        }
+        // Special case for faucet address - always allow transfers from the faucet
+        let is_faucet_transfer = from_address == FAUCET_ADDRESS;
         
-        // Calculate fee (1% of the amount)
-        let fee = amount / 100;
-        let transfer_amount = amount - fee;
-        
-        // Lock accounts for the transaction
         let mut accounts = self.accounts.lock().unwrap();
         
-        // Check if sender exists and has sufficient balance
-        // If sender doesn't exist, create it first with initial funding
-        if !accounts.contains_key(from_address) {
-            // Drop the lock temporarily to call create_account
-            drop(accounts);
-            
-            // Create the sender account with initial funding
-            match self.create_account(from_address) {
-                Ok(_) => {
-                    // Re-acquire the lock
-                    accounts = self.accounts.lock().unwrap();
-                },
-                Err(e) => return Err(e),
+        // Check if sender account exists
+        if !accounts.contains_key(from_address) && !is_faucet_transfer {
+            return Err(AccountError::Other(format!("Sender account {} does not exist", from_address)));
+        }
+        
+        // Check if recipient account exists
+        if !accounts.contains_key(to_address) {
+            return Err(AccountError::Other(format!("Recipient account {} does not exist", to_address)));
+        }
+        
+        // Calculate fee (1% of transfer amount)
+        let fee = amount / 100;
+        let total_deduction = amount + fee;
+        
+        // Check if sender has sufficient balance (skip for faucet)
+        if !is_faucet_transfer {
+            let sender = accounts.get(from_address).unwrap();
+            if sender.balance < total_deduction {
+                return Err(AccountError::Other(format!(
+                    "Insufficient balance: {} < {}", sender.balance, total_deduction
+                )));
             }
+            
+            // Deduct from sender
+            let sender = accounts.get_mut(from_address).unwrap();
+            sender.balance -= total_deduction;
         }
         
-        // Now the sender account should exist
-        let sender = accounts.get_mut(from_address).unwrap();
+        // Add to recipient
+        let recipient = accounts.get_mut(to_address).unwrap();
+        recipient.balance += amount;
         
-        if sender.balance < amount {
-            return Err(AccountError::Other("Insufficient balance for transfer".to_string()));
-        }
-        
-        // Deduct from sender
-        sender.balance -= amount;
-        
-        // Add transfer amount to recipient (create if doesn't exist)
-        if let Some(recipient) = accounts.get_mut(to_address) {
-            recipient.balance += transfer_amount;
-        } else {
-            // Create new account for recipient
-            let new_account = Account {
-                address: to_address.to_string(),
-                balance: transfer_amount,
-                verified: true, // Auto-verify like other accounts
-                last_ubi_claim: SystemTime::now(),
-            };
-            accounts.insert(to_address.to_string(), new_account);
-        }
-        
-        // Add fee to the global fee pool
+        // Add fee to pool
         let mut fee_pool = self.fee_pool.lock().unwrap();
         *fee_pool += fee;
         

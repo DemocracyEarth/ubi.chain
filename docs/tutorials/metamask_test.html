@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MetaMask Detection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .container {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>MetaMask Detection Test</h1>
+    
+    <div class="container">
+        <h2>MetaMask Status</h2>
+        <div id="status">Checking MetaMask status...</div>
+        <button id="checkButton">Check MetaMask</button>
+    </div>
+    
+    <div class="container">
+        <h2>Connect to MetaMask</h2>
+        <button id="connectButton">Connect to MetaMask</button>
+        <div id="connectResult"></div>
+    </div>
+    
+    <div class="container">
+        <h2>Debug Information</h2>
+        <pre id="debugInfo"></pre>
+    </div>
+    
+    <script>
+        // Elements
+        const statusElement = document.getElementById('status');
+        const checkButton = document.getElementById('checkButton');
+        const connectButton = document.getElementById('connectButton');
+        const connectResult = document.getElementById('connectResult');
+        const debugInfo = document.getElementById('debugInfo');
+        
+        // Function to update debug info
+        function updateDebugInfo() {
+            const info = {
+                'window.ethereum': typeof window.ethereum !== 'undefined',
+                'window.web3': typeof window.web3 !== 'undefined',
+                'navigator.userAgent': navigator.userAgent,
+                'document.location.protocol': document.location.protocol
+            };
+            
+            if (typeof window.ethereum !== 'undefined') {
+                info['ethereum.isMetaMask'] = window.ethereum.isMetaMask;
+                info['ethereum.isConnected'] = window.ethereum.isConnected();
+                info['ethereum._metamask'] = typeof window.ethereum._metamask !== 'undefined';
+            }
+            
+            debugInfo.textContent = JSON.stringify(info, null, 2);
+        }
+        
+        // Check MetaMask status on page load
+        function checkMetaMaskStatus() {
+            if (typeof window.ethereum !== 'undefined') {
+                if (window.ethereum.isMetaMask) {
+                    statusElement.textContent = 'MetaMask is installed and detected! ✅';
+                    statusElement.className = 'success';
+                } else {
+                    statusElement.textContent = 'An Ethereum provider is detected, but it does not appear to be MetaMask.';
+                    statusElement.className = 'error';
+                }
+            } else {
+                statusElement.textContent = 'MetaMask is not detected. Please make sure it is installed and enabled for this page.';
+                statusElement.className = 'error';
+            }
+            
+            updateDebugInfo();
+        }
+        
+        // Check MetaMask on page load
+        window.addEventListener('DOMContentLoaded', checkMetaMaskStatus);
+        
+        // Check button click handler
+        checkButton.addEventListener('click', checkMetaMaskStatus);
+        
+        // Connect button click handler
+        connectButton.addEventListener('click', async () => {
+            connectResult.textContent = 'Attempting to connect...';
+            
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    throw new Error('MetaMask is not detected');
+                }
+                
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                
+                if (accounts && accounts.length > 0) {
+                    connectResult.textContent = `Successfully connected to account: ${accounts[0]}`;
+                    connectResult.className = 'success';
+                } else {
+                    connectResult.textContent = 'Connected, but no accounts were returned';
+                    connectResult.className = 'error';
+                }
+            } catch (error) {
+                connectResult.textContent = `Error connecting: ${error.message}`;
+                connectResult.className = 'error';
+                console.error('Connection error:', error);
+            }
+            
+            updateDebugInfo();
+        });
+        
+        // Listen for account changes
+        if (typeof window.ethereum !== 'undefined') {
+            window.ethereum.on('accountsChanged', (accounts) => {
+                console.log('Accounts changed:', accounts);
+                updateDebugInfo();
+            });
+            
+            window.ethereum.on('chainChanged', (chainId) => {
+                console.log('Chain changed:', chainId);
+                updateDebugInfo();
+            });
+            
+            window.ethereum.on('connect', (connectInfo) => {
+                console.log('Connected:', connectInfo);
+                updateDebugInfo();
+            });
+            
+            window.ethereum.on('disconnect', (error) => {
+                console.log('Disconnected:', error);
+                updateDebugInfo();
+            });
+        }
+    </script>
+</body>
+</html> 

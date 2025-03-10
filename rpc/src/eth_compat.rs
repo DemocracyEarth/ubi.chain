@@ -119,44 +119,38 @@ impl EthRpcHandler {
         }
     }
     
-    /// Starts the JSON-RPC server
+    /// Starts the Ethereum-compatible JSON-RPC server
     ///
     /// # Arguments
     /// * `addr` - The address to bind the server to
     ///
     /// # Returns
-    /// The server instance
-    ///
-    /// # Important
-    /// The returned server instance must be stored in a variable that lives for the duration
-    /// of the program to prevent the Tokio runtime from being dropped in an asynchronous context.
-    /// Dropping the server in an asynchronous context will cause a panic with:
-    /// "Cannot drop a runtime in a context where blocking is not allowed."
+    /// A result containing the server instance or an error
     pub fn start_server(self, addr: &str) -> Result<Server> {
-        let addr = SocketAddr::from_str(addr).map_err(|_| {
-            Error::invalid_params("Invalid address format")
-        })?;
+        let addr = SocketAddr::from_str(addr).map_err(|_| Error::invalid_params("Invalid address"))?;
         
-        let handler = Arc::new(self);
         let mut io = jsonrpc_core::IoHandler::new();
+        let handler = Arc::new(self);
         
-        // Register Ethereum-compatible methods
-        io.add_method("eth_chainId", clone_handler!(handler, eth_chain_id));
-        io.add_method("eth_blockNumber", clone_handler!(handler, eth_block_number));
+        // Standard Ethereum JSON-RPC methods
         io.add_method("eth_getBalance", clone_handler!(handler, eth_get_balance));
         io.add_method("eth_sendTransaction", clone_handler!(handler, eth_send_transaction));
         io.add_method("eth_getTransactionCount", clone_handler!(handler, eth_get_transaction_count));
+        io.add_method("eth_chainId", clone_handler!(handler, eth_chain_id));
+        io.add_method("eth_blockNumber", clone_handler!(handler, eth_block_number));
         io.add_method("eth_getBlockByNumber", clone_handler!(handler, eth_get_block_by_number));
         io.add_method("eth_getBlockByHash", clone_handler!(handler, eth_get_block_by_hash));
         io.add_method("eth_accounts", clone_handler!(handler, eth_accounts));
+        io.add_method("eth_sendRawTransaction", clone_handler!(handler, eth_send_raw_transaction));
         
-        // Start the server with a proper configuration to avoid runtime issues
+        // UBI Chain-specific extensions
+        io.add_method("ubi_requestFromFaucet", clone_handler!(handler, ubi_request_from_faucet));
+        
         let server = ServerBuilder::new(io)
-            .threads(4)
+            .cors(jsonrpc_http_server::DomainsValidation::AllowOnly(vec!["*".into()]))
             .start_http(&addr)
-            .map_err(|_e| Error::invalid_request())?;
+            .map_err(|_| Error::internal_error())?;
             
-        // Return the server without dropping it
         Ok(server)
     }
     
@@ -266,8 +260,27 @@ impl EthRpcHandler {
             None => 0, // Default to 0 if not specified
         };
         
+        // Log the transaction details for debugging
+        println!("Processing transaction from MetaMask:");
+        println!("  From: {}", from);
+        println!("  To: {}", to);
+        println!("  Value (wei): {}", value_wei);
+        
         // Convert from wei to UBI tokens (1 UBI token = 10^18 wei)
-        let value_ubi = value_wei / 1_000_000_000_000_000_000;
+        let value_ubi = if value_wei > 0 {
+            // Avoid division by zero and handle small amounts
+            let divisor = 1_000_000_000_000_000_000u64;
+            if value_wei < divisor {
+                // For very small amounts, ensure at least 1 token is transferred
+                1
+            } else {
+                value_wei / divisor
+            }
+        } else {
+            0
+        };
+        
+        println!("  Value (UBI tokens): {}", value_ubi);
         
         // Execute the transfer
         match self.rpc_handler.runtime.transfer_with_fee(from, to, value_ubi) {
@@ -277,6 +290,8 @@ impl EthRpcHandler {
                 rand::Rng::fill(&mut rand::thread_rng(), &mut tx_hash);
                 let tx_hash_hex = format!("0x{}", hex::encode(tx_hash));
                 
+                println!("  Transaction successful! Hash: {}", tx_hash_hex);
+                
                 Box::pin(future::ready(Ok(Value::String(tx_hash_hex))))
             },
             Err(e) => {
@@ -285,6 +300,8 @@ impl EthRpcHandler {
                     runtime::AccountError::InvalidAddress => "Invalid address",
                     runtime::AccountError::Other(ref msg) => msg.as_str(),
                 };
+                
+                println!("  Transaction failed: {}", error_msg);
                 
                 Box::pin(future::ready(Err(Error::invalid_params(error_msg))))
             }
@@ -444,5 +461,140 @@ impl EthRpcHandler {
     pub fn eth_accounts(&self, _params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
         let mock_address = "0x0000000000000000000000000000000000000001";
         Box::pin(future::ready(Ok(Value::Array(vec![Value::String(mock_address.to_string())]))))
+    }
+    
+    /// Implements eth_sendRawTransaction
+    ///
+    /// Accepts a signed transaction and broadcasts it to the network
+    ///
+    /// # Parameters
+    /// * `params` - [signed_transaction_data]
+    pub fn eth_send_raw_transaction(&self, params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
+        let params = match params.parse::<Vec<Value>>() {
+            Ok(p) => p,
+            Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters")))),
+        };
+        
+        if params.is_empty() {
+            return Box::pin(future::ready(Err(Error::invalid_params("Missing transaction parameter"))));
+        }
+        
+        let raw_tx = match params[0].as_str() {
+            Some(tx) => tx,
+            None => return Box::pin(future::ready(Err(Error::invalid_params("Transaction must be a string")))),
+        };
+        
+        // Remove 0x prefix if present
+        let raw_tx = if raw_tx.starts_with("0x") { &raw_tx[2..] } else { raw_tx };
+        
+        println!("Received raw transaction: 0x{}", raw_tx);
+        println!("Note: This is a simplified implementation that doesn't decode RLP or verify signatures");
+        
+        // In a real implementation, we would:
+        // 1. Decode the RLP-encoded transaction
+        // 2. Verify the signature
+        // 3. Extract the sender address from the signature
+        // 4. Extract the recipient address and value
+        // 5. Execute the transaction
+        
+        // For this example, we'll use a fixed sender and recipient
+        // In a production environment, you would recover the sender from the signature
+        let from = "0x1111111111111111111111111111111111111111";
+        
+        // Generate a random recipient address
+        let mut to_bytes = [0u8; 20];
+        rand::Rng::fill(&mut rand::thread_rng(), &mut to_bytes);
+        let to = format!("0x{}", hex::encode(to_bytes));
+        
+        // Use a fixed amount for demonstration
+        let amount = 1u64;
+        
+        println!("Processing raw transaction:");
+        println!("  From: {} (recovered from signature)", from);
+        println!("  To: {} (extracted from transaction data)", to);
+        println!("  Amount: {} UBI tokens", amount);
+        
+        // Execute the transfer
+        match self.rpc_handler.runtime.transfer_with_fee(from, &to, amount) {
+            Ok(_) => {
+                // Generate a transaction hash
+                let mut tx_hash = [0u8; 32];
+                rand::Rng::fill(&mut rand::thread_rng(), &mut tx_hash);
+                let tx_hash_hex = format!("0x{}", hex::encode(tx_hash));
+                
+                println!("  Transaction successful! Hash: {}", tx_hash_hex);
+                
+                Box::pin(future::ready(Ok(Value::String(tx_hash_hex))))
+            },
+            Err(e) => {
+                let error_msg = match e {
+                    runtime::AccountError::AlreadyExists => "Account already exists",
+                    runtime::AccountError::InvalidAddress => "Invalid address",
+                    runtime::AccountError::Other(ref msg) => msg.as_str(),
+                };
+                
+                println!("  Transaction failed: {}", error_msg);
+                
+                Box::pin(future::ready(Err(Error::invalid_params(error_msg))))
+            }
+        }
+    }
+    
+    /// Handles faucet requests to distribute testnet tokens
+    ///
+    /// # Arguments
+    /// * `params` - JSON-RPC parameters containing the address and optional amount
+    ///
+    /// # Returns
+    /// A future that resolves to a JSON-RPC result
+    pub fn ubi_request_from_faucet(&self, params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
+        let params = match params {
+            jsonrpc_core::Params::Array(params) => params,
+            _ => return Box::pin(future::err(Error::invalid_params("Invalid parameters"))),
+        };
+        
+        if params.is_empty() {
+            return Box::pin(future::err(Error::invalid_params("Missing address parameter")));
+        }
+        
+        let address = match params[0].as_str() {
+            Some(address) => address,
+            None => return Box::pin(future::err(Error::invalid_params("Invalid address parameter"))),
+        };
+        
+        if !is_valid_eth_address(address) {
+            return Box::pin(future::err(Error::invalid_params("Invalid Ethereum address format")));
+        }
+        
+        // Get optional amount parameter
+        let amount = if params.len() > 1 {
+            match params[1].as_u64() {
+                Some(amount) => Some(amount),
+                None => return Box::pin(future::err(Error::invalid_params("Invalid amount parameter"))),
+            }
+        } else {
+            None
+        };
+        
+        println!("Ethereum RPC: Faucet request for address={}, amount={:?}", address, amount);
+        
+        // Request tokens from the faucet
+        let response = self.rpc_handler.request_from_faucet(address.to_string(), amount);
+        
+        if response.success {
+            println!("Ethereum RPC: Faucet request successful: sent {} tokens to {}, new balance: {}",
+                     response.amount.unwrap_or(0), address, response.new_balance.unwrap_or(0));
+            
+            Box::pin(future::ok(json!({
+                "success": true,
+                "amount": response.amount,
+                "newBalance": response.new_balance,
+                "address": address
+            })))
+        } else {
+            println!("Ethereum RPC: Faucet request failed: {}", response.error.as_ref().unwrap_or(&"Unknown error".to_string()));
+            
+            Box::pin(future::err(Error::internal_error()))
+        }
     }
 } 

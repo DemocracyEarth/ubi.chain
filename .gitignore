@@ -25,3 +25,7 @@ test_checkpoints*/
 
 # Blockchain checkpoints directory
 checkpoints/
+
+# Log files
+node_debug.log
+node_output.log
