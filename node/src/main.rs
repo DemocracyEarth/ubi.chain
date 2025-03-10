@@ -11,7 +11,6 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use log::{info, error, trace, debug, warn};
 use std::net::SocketAddr;
 use clap::Parser;
-use serde_json;
 use tokio::sync::{mpsc, broadcast};
 use tokio::time::{self, Duration, Instant};
 use std::sync::Arc;
@@ -19,12 +18,10 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 use runtime::Runtime;
 use std::time::SystemTime;
-use hex;
 use serde::{Serialize, Deserialize};
 
 mod p2p;
 use p2p::P2PNetwork;
-use rpc;
 
 /// Command line arguments for the node
 #[derive(Parser, Debug)]
@@ -488,7 +485,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         time::sleep(Duration::from_secs(2)).await;
         
         // Create some test accounts
-        let test_accounts = vec![
+        let test_accounts = [
             "0x1111111111111111111111111111111111111111",
             "0x2222222222222222222222222222222222222222",
             "0x3333333333333333333333333333333333333333",
@@ -569,7 +566,7 @@ async fn run_rpc_server(addr: &str, rpc_handler: rpc::RpcHandler) -> Result<(), 
                                             "getAccountInfo" => {
                                                 trace!("Processing getAccountInfo request");
                                                 if let Some(params) = request.get("params").and_then(|p| p.as_array()) {
-                                                    if let Some(address) = params.get(0).and_then(|a| a.as_str()) {
+                                                    if let Some(address) = params.first().and_then(|a| a.as_str()) {
                                                         let response = handler.get_account_info(address.to_string());
                                                         serde_json::to_string(&response).unwrap_or_default()
                                                     } else {
@@ -582,7 +579,7 @@ async fn run_rpc_server(addr: &str, rpc_handler: rpc::RpcHandler) -> Result<(), 
                                             "createAccount" => {
                                                 trace!("Processing createAccount request");
                                                 if let Some(params) = request.get("params").and_then(|p| p.as_array()) {
-                                                    if let Some(address) = params.get(0).and_then(|a| a.as_str()) {
+                                                    if let Some(address) = params.first().and_then(|a| a.as_str()) {
                                                         let response = handler.create_account(address.to_string());
                                                         serde_json::to_string(&response).unwrap_or_default()
                                                     } else {

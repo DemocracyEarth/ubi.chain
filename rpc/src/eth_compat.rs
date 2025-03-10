@@ -175,7 +175,7 @@ impl EthRpcHandler {
             Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters")))),
         };
         
-        if params.len() < 1 {
+        if params.is_empty() {
             return Box::pin(future::ready(Err(Error::invalid_params("Missing address parameter"))));
         }
         
@@ -215,7 +215,7 @@ impl EthRpcHandler {
             Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters")))),
         };
         
-        if params.len() < 1 {
+        if params.is_empty() {
             return Box::pin(future::ready(Err(Error::invalid_params("Missing transaction parameter"))));
         }
         
@@ -245,8 +245,8 @@ impl EthRpcHandler {
             Some(val) => {
                 match val.as_str() {
                     Some(hex_val) => {
-                        if hex_val.starts_with("0x") {
-                            match u64::from_str_radix(&hex_val[2..], 16) {
+                        if let Some(stripped) = hex_val.strip_prefix("0x") {
+                            match u64::from_str_radix(stripped, 16) {
                                 Ok(v) => v,
                                 Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid value format")))),
                             }
@@ -307,7 +307,7 @@ impl EthRpcHandler {
             Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters")))),
         };
         
-        if params.len() < 1 {
+        if params.is_empty() {
             return Box::pin(future::ready(Err(Error::invalid_params("Missing address parameter"))));
         }
         
@@ -360,7 +360,7 @@ impl EthRpcHandler {
             Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters")))),
         };
         
-        if params.len() < 1 {
+        if params.is_empty() {
             return Box::pin(future::ready(Err(Error::invalid_params("Missing block number parameter"))));
         }
         
@@ -405,7 +405,7 @@ impl EthRpcHandler {
             Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters")))),
         };
         
-        if params.len() < 1 {
+        if params.is_empty() {
             return Box::pin(future::ready(Err(Error::invalid_params("Missing block hash parameter"))));
         }
         

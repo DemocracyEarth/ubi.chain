@@ -52,7 +52,7 @@ mod tests {
         let account = result.unwrap();
         assert_eq!(account.address, valid_address);
         assert_eq!(account.balance, 0);
-        assert_eq!(account.verified, true); // Now accounts are auto-verified
+        assert!(account.verified); // Now accounts are auto-verified
         
         // Test duplicate address
         let duplicate_result = runtime.create_account(valid_address);
@@ -302,13 +302,13 @@ mod tests {
         let account3_dividends = runtime.claim_dividends(accounts[2]);
         
         // Account 1 should get ~50% of fees
-        assert!(account1_dividends >= 49 && account1_dividends <= 51);
+        assert!((49..=51).contains(&account1_dividends));
         
         // Account 2 should get ~30% of fees
-        assert!(account2_dividends >= 29 && account2_dividends <= 31);
+        assert!((29..=31).contains(&account2_dividends));
         
         // Account 3 should get ~20% of fees
-        assert!(account3_dividends >= 19 && account3_dividends <= 21);
+        assert!((19..=21).contains(&account3_dividends));
         
         // Total distributed should be 100
         assert_eq!(account1_dividends + account2_dividends + account3_dividends, 100);
@@ -591,18 +591,7 @@ impl Runtime {
     /// # Returns
     /// A new Runtime instance with initialized storage
     pub fn new() -> Self {
-        Runtime {
-            accounts: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            fee_pool: Arc::new(std::sync::Mutex::new(0)),
-            dividend_per_token: Arc::new(std::sync::Mutex::new(0)),
-            total_supply: Arc::new(std::sync::Mutex::new(0)),
-            last_dividend_points: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            unclaimed_dividends: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            state_tree: Arc::new(std::sync::Mutex::new(MerkleTree::new())),
-            checkpoints: Arc::new(std::sync::Mutex::new(Vec::new())),
-            max_checkpoints: 10, // Default to keeping 10 checkpoints
-            checkpoint_dir: "./checkpoints".to_string(),
-        }
+        Self::default()
     }
     
     /// Creates a new Runtime with custom checkpoint configuration
@@ -1268,6 +1257,12 @@ pub struct MerkleTree {
     pub leaves: Vec<[u8; 32]>,
 }
 
+impl Default for MerkleTree {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MerkleNode {
     /// Creates a new leaf node with the given data
     pub fn new_leaf(data: &[u8]) -> Self {
@@ -1461,12 +1456,12 @@ impl MerkleTree {
             
             if is_right {
                 // Sibling is on the right
-                hasher.update(&current_hash);
-                hasher.update(&sibling_hash);
+                hasher.update(current_hash);
+                hasher.update(sibling_hash);
             } else {
                 // Sibling is on the left
-                hasher.update(&sibling_hash);
-                hasher.update(&current_hash);
+                hasher.update(sibling_hash);
+                hasher.update(current_hash);
             }
             
             let hash = hasher.finalize();
@@ -1474,5 +1469,23 @@ impl MerkleTree {
         }
         
         current_hash == root_hash
+    }
+}
+
+// Add Default implementation for Runtime
+impl Default for Runtime {
+    fn default() -> Self {
+        Runtime {
+            accounts: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            fee_pool: Arc::new(std::sync::Mutex::new(0)),
+            dividend_per_token: Arc::new(std::sync::Mutex::new(0)),
+            total_supply: Arc::new(std::sync::Mutex::new(0)),
+            last_dividend_points: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            unclaimed_dividends: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            state_tree: Arc::new(std::sync::Mutex::new(MerkleTree::new())),
+            checkpoints: Arc::new(std::sync::Mutex::new(Vec::new())),
+            max_checkpoints: 10, // Default to keeping 10 checkpoints
+            checkpoint_dir: "./checkpoints".to_string(),
+        }
     }
 } 

@@ -200,7 +200,7 @@ mod tests {
         
         let info = handler.get_account_info("test_address".to_string());
         assert_eq!(info.balance, 0); // New accounts start with 0 balance
-        assert_eq!(info.verified, false); // New accounts start unverified
+        assert!(!info.verified); // New accounts start unverified
     }
     
     #[test]
@@ -218,7 +218,7 @@ mod tests {
         let account_info = response.account.unwrap();
         assert_eq!(account_info.address, valid_address);
         assert_eq!(account_info.balance, 0);
-        assert_eq!(account_info.verified, false);
+        assert!(!account_info.verified);
         
         // Test duplicate address
         let duplicate_response = handler.create_account(valid_address.to_string());
