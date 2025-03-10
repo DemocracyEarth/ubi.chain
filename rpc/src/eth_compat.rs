@@ -15,6 +15,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use hex;
 use rand;
+use log;
 
 // Helper macro for cloning handlers
 macro_rules! clone_handler {
@@ -156,7 +157,7 @@ impl EthRpcHandler {
     
     /// Implements eth_getBalance
     ///
-    /// Gets the balance of an account at a given block
+    /// Gets the balance of an account in wei
     ///
     /// # Parameters
     /// * `params` - [address, block_identifier]
@@ -164,30 +165,42 @@ impl EthRpcHandler {
     /// # Returns
     /// The balance in wei (converted from UBI tokens)
     pub fn eth_get_balance(&self, params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
+        log::info!("eth_getBalance called with params: {:?}", params);
+        
         let params = match params.parse::<Vec<Value>>() {
             Ok(p) => p,
-            Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters")))),
+            Err(e) => {
+                log::error!("eth_getBalance: Failed to parse parameters: {:?}", e);
+                return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters"))));
+            },
         };
         
         if params.is_empty() {
+            log::error!("eth_getBalance: Missing address parameter");
             return Box::pin(future::ready(Err(Error::invalid_params("Missing address parameter"))));
         }
         
         let address = match params[0].as_str() {
             Some(addr) => addr,
-            None => return Box::pin(future::ready(Err(Error::invalid_params("Invalid address format")))),
+            None => {
+                log::error!("eth_getBalance: Invalid address format");
+                return Box::pin(future::ready(Err(Error::invalid_params("Invalid address format"))));
+            },
         };
         
         if !is_valid_eth_address(address) {
+            log::error!("eth_getBalance: Invalid Ethereum address: {}", address);
             return Box::pin(future::ready(Err(Error::invalid_params("Invalid Ethereum address"))));
         }
         
         // Get balance from UBI Chain runtime
         let balance = self.rpc_handler.get_account_info(address.to_string()).balance;
+        log::info!("eth_getBalance: Raw balance for {}: {} UBI tokens", address, balance);
         
         // Convert to wei (1 UBI token = 10^18 wei for Ethereum compatibility)
         // Use a simple approach - just convert to hex with 18 zeros (representing decimals)
         let hex_balance = format!("0x{:x}000000000000000000", balance);
+        log::info!("eth_getBalance: Returning balance for {}: {} ({} UBI tokens)", address, hex_balance, balance);
         
         Box::pin(future::ready(Ok(Value::String(hex_balance))))
     }

@@ -156,12 +156,17 @@ impl RpcHandler {
     /// println!("Balance: {}", info.balance);
     /// ```
     pub fn get_account_info(&self, address: String) -> AccountInfo {
+        let normalized_address = address.to_lowercase();
+        info!("get_account_info called for address: {}", normalized_address);
+
         // Query the runtime for account information
-        let balance = self.runtime.get_balance(&address);
-        let verified = self.runtime.is_account_verified(&address);
-        
+        let balance = self.runtime.get_balance(&normalized_address);
+        let verified = self.runtime.is_account_verified(&normalized_address);
+
+        info!("Account info retrieved: address={}, balance={}, verified={}", normalized_address, balance, verified);
+
         AccountInfo {
-            address,
+            address: normalized_address,
             balance,
             verified,
         }
@@ -185,7 +190,8 @@ impl RpcHandler {
     /// }
     /// ```
     pub fn create_account(&self, address: String) -> CreateAccountResponse {
-        match self.runtime.create_account(&address) {
+        let normalized_address = address.to_lowercase();
+        match self.runtime.create_account(&normalized_address) {
             Ok(account) => {
                 let account_info = AccountInfo {
                     address: account.address,
@@ -229,8 +235,9 @@ impl RpcHandler {
     /// # Returns
     /// A response indicating success or failure
     pub async fn request_from_faucet(&self, address: String, amount: Option<u64>) -> FaucetResponse {
-        // Validate the address
-        if !is_valid_eth_address(&address) {
+        let normalized_address = address.to_lowercase();
+
+        if !is_valid_eth_address(&normalized_address) {
             return FaucetResponse {
                 success: false,
                 amount: None,
@@ -238,21 +245,17 @@ impl RpcHandler {
                 error: Some("Invalid Ethereum address".to_string()),
             };
         }
-        
-        // Get the faucet address (use node address if available, otherwise use default)
+
         let faucet_address = match &self.node_address {
-            Some(addr) => addr.clone(),
+            Some(addr) => addr.to_lowercase(),
             None => "0x1111111111111111111111111111111111111111".to_string(),
         };
-        
-        // Determine amount to send (default to 10 if not specified, cap at 100)
+
         let tokens_to_send = amount.unwrap_or(10).min(100);
-        
-        // Check faucet balance
+
         let faucet_balance = self.runtime.get_balance(&faucet_address);
-        
-        // Ensure faucet has enough balance
-        if faucet_balance < tokens_to_send + 1 { // +1 for fee
+
+        if faucet_balance < tokens_to_send + 1 {
             return FaucetResponse {
                 success: false,
                 amount: None,
@@ -260,18 +263,15 @@ impl RpcHandler {
                 error: Some(format!("Insufficient balance: {} < {}", faucet_balance, tokens_to_send + 1)),
             };
         }
-        
-        // Check if recipient account exists, create it if it doesn't
-        let recipient_exists = self.runtime.get_balance(&address) > 0;
+
+        let recipient_exists = self.runtime.get_balance(&normalized_address) > 0;
         if !recipient_exists {
-            match self.runtime.create_account(&address) {
+            match self.runtime.create_account(&normalized_address) {
                 Ok(_) => {
-                    info!("Created new account for recipient: {}", address);
+                    info!("Created new account for recipient: {}", normalized_address);
                 },
                 Err(e) => {
-                    // If error is "already exists", that's fine, otherwise return error
                     if let runtime::AccountError::AlreadyExists = e {
-                        // Account already exists, which is fine
                     } else {
                         return FaucetResponse {
                             success: false,
@@ -283,13 +283,11 @@ impl RpcHandler {
                 }
             }
         }
-        
-        // Create and submit the transaction
-        match self.create_faucet_transaction(&faucet_address, &address, tokens_to_send).await {
+
+        match self.create_faucet_transaction(&faucet_address, &normalized_address, tokens_to_send).await {
             Ok(tx_hash) => {
                 info!("Transaction successfully created with hash: {}", tx_hash);
-                // Get the new balance
-                let new_balance = self.runtime.get_balance(&address);
+                let new_balance = self.runtime.get_balance(&normalized_address);
                 FaucetResponse {
                     success: true,
                     amount: Some(tokens_to_send),
@@ -321,36 +319,35 @@ impl RpcHandler {
     /// # Returns
     /// A JSON-RPC response with the transaction hash
     pub async fn create_faucet_transaction(&self, from_address: &str, to_address: &str, amount: u64) -> Result<String, String> {
-        // Generate a transaction hash
+        let normalized_from_address = from_address.to_lowercase();
+        let normalized_to_address = to_address.to_lowercase();
+
         use rand::Rng;
         use hex;
-        
+
         let mut tx_hash_bytes = [0u8; 32];
         rand::thread_rng().fill(&mut tx_hash_bytes);
         let tx_hash = format!("0x{}", hex::encode(tx_hash_bytes));
-        
-        // Get the current timestamp
+
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        
-        // Create a transaction
+
         let transaction = Transaction {
             hash: tx_hash.clone(),
-            from: from_address.to_string(),
-            to: to_address.to_string(),
+            from: normalized_from_address.clone(),
+            to: normalized_to_address.clone(),
             amount,
-            fee: 1, // Fixed fee of 1 token
+            fee: 1,
             timestamp,
         };
-        
-        // Submit the transaction to the runtime's transaction pool
+
         if let Some(block_producer) = self.runtime.get_block_producer() {
             match block_producer.submit_transaction(transaction.clone()) {
                 Ok(_) => {
                     info!("Added faucet transaction to mempool: {} -> {}, amount: {}, hash: {}", 
-                          from_address, to_address, amount, tx_hash);
+                          normalized_from_address, normalized_to_address, amount, tx_hash);
                     Ok(tx_hash)
                 },
                 Err(e) => {
