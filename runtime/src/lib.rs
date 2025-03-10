@@ -679,17 +679,20 @@ impl Runtime {
             return Err(AccountError::AlreadyExists);
         }
         
-        // Create new account with zero balance and AUTOMATICALLY VERIFIED status (placeholder)
+        // Create new account with 10 UBI tokens initial balance and AUTOMATICALLY VERIFIED status
         // Also set the last_ubi_claim to the current time
         let account = Account {
             address: address.to_string(),
-            balance: 0,
+            balance: 10, // Fund with 10 UBI tokens initially
             verified: true, // Auto-verify all accounts as a placeholder
             last_ubi_claim: SystemTime::now(),
         };
         
         // Store the account
         accounts.insert(address.to_string(), account.clone());
+        
+        // Update total supply to account for the new tokens
+        self.update_total_supply(10, true);
         
         Ok(account)
     }
@@ -924,9 +927,23 @@ impl Runtime {
         let mut accounts = self.accounts.lock().unwrap();
         
         // Check if sender exists and has sufficient balance
-        let sender = accounts.get_mut(from_address).ok_or_else(|| 
-            AccountError::Other(format!("Sender account {} not found", from_address))
-        )?;
+        // If sender doesn't exist, create it first with initial funding
+        if !accounts.contains_key(from_address) {
+            // Drop the lock temporarily to call create_account
+            drop(accounts);
+            
+            // Create the sender account with initial funding
+            match self.create_account(from_address) {
+                Ok(_) => {
+                    // Re-acquire the lock
+                    accounts = self.accounts.lock().unwrap();
+                },
+                Err(e) => return Err(e),
+            }
+        }
+        
+        // Now the sender account should exist
+        let sender = accounts.get_mut(from_address).unwrap();
         
         if sender.balance < amount {
             return Err(AccountError::Other("Insufficient balance for transfer".to_string()));
@@ -943,7 +960,7 @@ impl Runtime {
             let new_account = Account {
                 address: to_address.to_string(),
                 balance: transfer_amount,
-                verified: false,
+                verified: true, // Auto-verify like other accounts
                 last_ubi_claim: SystemTime::now(),
             };
             accounts.insert(to_address.to_string(), new_account);

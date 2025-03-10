@@ -19,6 +19,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use runtime::Runtime;
 use std::time::SystemTime;
 use serde::{Serialize, Deserialize};
+use runtime::AccountError;
 
 mod p2p;
 use p2p::P2PNetwork;
@@ -480,6 +481,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Generate some test transactions
     let block_producer_for_tx = block_producer.clone();
+    let runtime_for_tx = runtime.clone();
     tokio::spawn(async move {
         // Wait a bit for everything to start up
         time::sleep(Duration::from_secs(2)).await;
@@ -491,6 +493,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "0x3333333333333333333333333333333333333333",
             "0x4444444444444444444444444444444444444444",
         ];
+        
+        // First, ensure all test accounts are created and funded
+        for &account in &test_accounts {
+            match runtime_for_tx.create_account(account) {
+                Ok(_) => {
+                    info!("Created and funded test account: {} with 10 UBI tokens", account);
+                },
+                Err(e) => {
+                    if let AccountError::AlreadyExists = e {
+                        info!("Test account already exists: {}", account);
+                    } else {
+                        error!("Failed to create test account {}: {:?}", account, e);
+                    }
+                }
+            }
+        }
         
         // Create a transaction every 100ms
         let mut counter = 0;
@@ -525,8 +543,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     
     // Start the standard RPC server
-    run_rpc_server(&rpc_addr, rpc_handler).await?;
+    let rpc_handler_clone = rpc_handler.clone();
+    let rpc_addr_clone = rpc_addr.clone();
+    tokio::spawn(async move {
+        if let Err(e) = run_rpc_server(&rpc_addr_clone, rpc_handler_clone).await {
+            error!("RPC server error: {}", e);
+        }
+    });
     
+    // Keep the main task running
+    loop {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+    
+    // This line will never be reached, but we keep it for type correctness
+    #[allow(unreachable_code)]
     Ok(())
 }
 

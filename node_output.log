@@ -1,0 +1,23 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running `target/debug/ubi-chain-node`
+[2025-03-10T00:16:49Z INFO  ubi_chain_node] Starting P2P network on 127.0.0.1:30333
+[2025-03-10T00:16:49Z INFO  ubi_chain_node] Starting RPC server on 127.0.0.1:9933
+[2025-03-10T00:16:49Z INFO  ubi_chain_node] Initialized blockchain runtime
+[2025-03-10T00:16:49Z INFO  ubi_chain_node] Starting Ethereum-compatible JSON-RPC server on 127.0.0.1:8545
+[2025-03-10T00:16:49Z INFO  ubi_chain_node] Starting block production with 1000ms block time
+[2025-03-10T00:16:49Z INFO  ubi_chain_node] Produced block #1 with 0 transactions
+[2025-03-10T00:16:49Z INFO  ubi_chain_node] Ethereum-compatible JSON-RPC server started successfully
+[2025-03-10T00:16:49Z ERROR ubi_chain_node] RPC server error: Address already in use (os error 48)
+[2025-03-10T00:16:50Z INFO  ubi_chain_node] Produced block #2 with 0 transactions
+[2025-03-10T00:16:51Z INFO  ubi_chain_node] Created and funded test account: 0x1111111111111111111111111111111111111111 with 10 UBI tokens
+[2025-03-10T00:16:51Z INFO  ubi_chain_node] Produced block #3 with 0 transactions
+[2025-03-10T00:16:51Z INFO  ubi_chain_node] Created and funded test account: 0x2222222222222222222222222222222222222222 with 10 UBI tokens
+[2025-03-10T00:16:51Z INFO  ubi_chain_node] Created and funded test account: 0x3333333333333333333333333333333333333333 with 10 UBI tokens
+[2025-03-10T00:16:51Z INFO  ubi_chain_node] Created and funded test account: 0x4444444444444444444444444444444444444444 with 10 UBI tokens
+[2025-03-10T00:16:52Z INFO  ubi_chain_node] Produced block #4 with 10 transactions
+[2025-03-10T00:16:53Z INFO  ubi_chain_node] Produced block #5 with 10 transactions
+[2025-03-10T00:16:54Z INFO  ubi_chain_node] Produced block #6 with 10 transactions
+[2025-03-10T00:16:55Z INFO  ubi_chain_node] Produced block #7 with 10 transactions
+[2025-03-10T00:16:56Z INFO  ubi_chain_node] Produced block #8 with 10 transactions
+[2025-03-10T00:16:57Z INFO  ubi_chain_node] Produced block #9 with 10 transactions
+[2025-03-10T00:16:58Z INFO  ubi_chain_node] Produced block #10 with 9 transactions
