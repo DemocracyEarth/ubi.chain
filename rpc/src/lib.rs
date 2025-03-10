@@ -156,7 +156,11 @@ impl RpcHandler {
     /// println!("Balance: {}", info.balance);
     /// ```
     pub fn get_account_info(&self, address: String) -> AccountInfo {
+        // Preserve the original address format for the response
+        let original_address = address.clone();
+        // Normalize the address for lookup
         let normalized_address = address.to_lowercase();
+        
         info!("get_account_info called for address: {}", normalized_address);
 
         // Query the runtime for account information
@@ -165,8 +169,9 @@ impl RpcHandler {
 
         info!("Account info retrieved: address={}, balance={}, verified={}", normalized_address, balance, verified);
 
+        // Return the account info with the ORIGINAL address format to maintain case consistency
         AccountInfo {
-            address: normalized_address,
+            address: original_address,
             balance,
             verified,
         }

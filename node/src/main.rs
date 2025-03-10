@@ -251,15 +251,6 @@ impl BlockProducer {
                     if let Err(e) = self.block_sender.send(block.clone()).await {
                         error!("Failed to send block: {}", e);
                     }
-                    
-                    // Create a checkpoint every 10 blocks, but don't block the main loop
-                    if block.number % 10 == 0 {
-                        // Skip checkpoint creation for now to avoid potential issues
-                        info!("Skipping checkpoint creation at block {} to avoid potential issues", block.number);
-                        
-                        // In a production environment, we would create a checkpoint here
-                        // but for the testnet, we'll skip it to ensure smooth operation
-                    }
                 },
                 Err(e) => {
                     error!("Failed to produce block: {}", e);

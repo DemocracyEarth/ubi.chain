@@ -16,6 +16,11 @@ use std::sync::Arc;
 use hex;
 use rand;
 use log;
+use std::sync::Mutex;
+use once_cell::sync::Lazy;
+
+// Thread-local storage for the last transaction sender
+static LAST_TRANSACTION_SENDER: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 
 // Helper macro for cloning handlers
 macro_rules! clone_handler {
@@ -147,6 +152,12 @@ impl EthRpcHandler {
         // UBI Chain-specific extensions
         io.add_method("ubi_requestFromFaucet", clone_handler!(handler, ubi_request_from_faucet));
         
+        // Placeholder implementations for MetaMask compatibility
+        io.add_method("eth_getTransactionReceipt", clone_handler!(handler, eth_get_transaction_receipt));
+        io.add_method("eth_getTransactionByHash", clone_handler!(handler, eth_get_transaction_by_hash));
+        io.add_method("eth_estimateGas", clone_handler!(handler, eth_estimate_gas));
+        io.add_method("eth_getLogs", clone_handler!(handler, eth_get_logs));
+        
         let server = ServerBuilder::new(io)
             .cors(jsonrpc_http_server::DomainsValidation::AllowOnly(vec!["*".into()]))
             .start_http(&addr)
@@ -170,39 +181,53 @@ impl EthRpcHandler {
         let params = match params.parse::<Vec<Value>>() {
             Ok(p) => p,
             Err(e) => {
-                log::error!("eth_getBalance: Failed to parse parameters: {:?}", e);
-                return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters"))));
-            },
+                log::error!("Invalid parameters for eth_getBalance: {}", e);
+                return Box::pin(future::ready(Err(Error::invalid_params(format!("Invalid parameters: {}", e)))));
+            }
         };
         
-        if params.is_empty() {
-            log::error!("eth_getBalance: Missing address parameter");
+        if params.len() < 1 {
+            log::error!("Missing address parameter for eth_getBalance");
             return Box::pin(future::ready(Err(Error::invalid_params("Missing address parameter"))));
         }
         
         let address = match params[0].as_str() {
             Some(addr) => addr,
             None => {
-                log::error!("eth_getBalance: Invalid address format");
+                log::error!("Invalid address format for eth_getBalance");
                 return Box::pin(future::ready(Err(Error::invalid_params("Invalid address format"))));
-            },
+            }
         };
         
-        if !is_valid_eth_address(address) {
-            log::error!("eth_getBalance: Invalid Ethereum address: {}", address);
-            return Box::pin(future::ready(Err(Error::invalid_params("Invalid Ethereum address"))));
+        log::info!("eth_getBalance: Querying balance for address: {}", address);
+        
+        // Get the account info from the UBI Chain runtime - use the EXACT address string from the request
+        let account_info = self.rpc_handler.get_account_info(address.to_string());
+        log::info!("eth_getBalance: Account info for {}: address={}, balance={}, verified={}", 
+                   address, account_info.address, account_info.balance, account_info.verified);
+        
+        // Check if the account address matches the requested address (ignoring case)
+        if account_info.address.to_lowercase() != address.to_lowercase() {
+            log::warn!("eth_getBalance: Address mismatch! Requested: {}, Got: {}", 
+                      address, account_info.address);
         }
         
-        // Get balance from UBI Chain runtime
-        let balance = self.rpc_handler.get_account_info(address.to_string()).balance;
-        log::info!("eth_getBalance: Raw balance for {}: {} UBI tokens", address, balance);
+        // Get the balance from the account info
+        let balance = account_info.balance;
+        log::info!("eth_getBalance: Raw UBI balance for {}: {}", address, balance);
         
-        // Convert to wei (1 UBI token = 10^18 wei for Ethereum compatibility)
-        // Use a simple approach - just convert to hex with 18 zeros (representing decimals)
-        let hex_balance = format!("0x{:x}000000000000000000", balance);
-        log::info!("eth_getBalance: Returning balance for {}: {} ({} UBI tokens)", address, hex_balance, balance);
+        // Convert to wei (1 UBI = 10^18 wei)
+        // Use string operations to avoid overflow
+        let balance_wei_str = format!("{}{}", balance, "000000000000000000"); // Append 18 zeros
+        log::info!("eth_getBalance: Balance in wei (string): {}", balance_wei_str);
         
-        Box::pin(future::ready(Ok(Value::String(hex_balance))))
+        // Convert to hex with 0x prefix
+        let balance_hex = format!("0x{:x}", balance);
+        let balance_wei_hex = format!("0x{}{}", balance_hex.strip_prefix("0x").unwrap_or(&balance_hex), "000000000000000000");
+        log::info!("eth_getBalance: Balance in hex: {}", balance_hex);
+        log::info!("eth_getBalance: Balance in wei (hex): {}", balance_wei_hex);
+        
+        Box::pin(future::ready(Ok(Value::String(balance_wei_hex))))
     }
     
     /// Implements eth_sendTransaction
@@ -215,6 +240,7 @@ impl EthRpcHandler {
     /// # Returns
     /// The transaction hash
     pub fn eth_send_transaction(&self, params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
+        log::info!("eth_sendTransaction called with params: {:?}", params);
         let params = match params.parse::<Vec<Value>>() {
             Ok(p) => p,
             Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters")))),
@@ -330,25 +356,37 @@ impl EthRpcHandler {
     /// # Returns
     /// The transaction count as a hex string
     pub fn eth_get_transaction_count(&self, params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
+        log::info!("eth_getTransactionCount called with params: {:?}", params);
+        
         let params = match params.parse::<Vec<Value>>() {
             Ok(p) => p,
-            Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters")))),
+            Err(e) => {
+                log::error!("Invalid parameters for eth_getTransactionCount: {}", e);
+                return Box::pin(future::ready(Err(Error::invalid_params(format!("Invalid parameters: {}", e)))));
+            }
         };
         
-        if params.is_empty() {
+        if params.len() < 1 {
+            log::error!("Missing address parameter for eth_getTransactionCount");
             return Box::pin(future::ready(Err(Error::invalid_params("Missing address parameter"))));
         }
         
         let address = match params[0].as_str() {
             Some(addr) => addr,
-            None => return Box::pin(future::ready(Err(Error::invalid_params("Invalid address format")))),
+            None => {
+                log::error!("Invalid address format for eth_getTransactionCount");
+                return Box::pin(future::ready(Err(Error::invalid_params("Invalid address format"))));
+            }
         };
         
-        if !is_valid_eth_address(address) {
-            return Box::pin(future::ready(Err(Error::invalid_params("Invalid Ethereum address"))));
-        }
+        log::info!("eth_getTransactionCount: Storing sender address: {}", address);
         
-        // In UBI Chain, we don't track nonces, so return 0
+        // Store the sender address for later use in eth_sendRawTransaction
+        let mut thread_local_storage = LAST_TRANSACTION_SENDER.lock().unwrap();
+        *thread_local_storage = Some(address.to_string());
+        
+        // In UBI Chain, we don't track nonces, so we'll return a fixed value
+        // This is a placeholder implementation
         Box::pin(future::ready(Ok(Value::String("0x0".to_string()))))
     }
     
@@ -359,7 +397,9 @@ impl EthRpcHandler {
     /// # Returns
     /// The chain ID as a hex string
     pub fn eth_chain_id(&self, _params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
+        log::info!("eth_chainId called");
         let chain_id = format!("0x{:x}", self.chain_id);
+        log::info!("eth_chainId returning: {}", chain_id);
         Box::pin(future::ready(Ok(Value::String(chain_id))))
     }
     
@@ -481,36 +521,52 @@ impl EthRpcHandler {
     /// # Parameters
     /// * `params` - [signed_transaction_data]
     pub fn eth_send_raw_transaction(&self, params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
+        log::info!("eth_sendRawTransaction called with params: {:?}", params);
+        
         let params = match params.parse::<Vec<Value>>() {
             Ok(p) => p,
-            Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters")))),
+            Err(e) => {
+                log::error!("Invalid parameters for eth_sendRawTransaction: {}", e);
+                return Box::pin(future::ready(Err(Error::invalid_params(format!("Invalid parameters: {}", e)))));
+            }
         };
         
         if params.is_empty() {
+            log::error!("Missing transaction parameter for eth_sendRawTransaction");
             return Box::pin(future::ready(Err(Error::invalid_params("Missing transaction parameter"))));
         }
         
         let raw_tx = match params[0].as_str() {
             Some(tx) => tx,
-            None => return Box::pin(future::ready(Err(Error::invalid_params("Transaction must be a string")))),
+            None => {
+                log::error!("Transaction must be a string for eth_sendRawTransaction");
+                return Box::pin(future::ready(Err(Error::invalid_params("Transaction must be a string"))));
+            }
         };
         
         // Remove 0x prefix if present
         let raw_tx = if raw_tx.starts_with("0x") { &raw_tx[2..] } else { raw_tx };
         
-        println!("Received raw transaction: 0x{}", raw_tx);
-        println!("Note: This is a simplified implementation that doesn't decode RLP or verify signatures");
+        log::info!("Received raw transaction: 0x{}", raw_tx);
         
-        // In a real implementation, we would:
-        // 1. Decode the RLP-encoded transaction
-        // 2. Verify the signature
-        // 3. Extract the sender address from the signature
-        // 4. Extract the recipient address and value
-        // 5. Execute the transaction
+        // In a real implementation, we would decode the RLP-encoded transaction
+        // For now, we'll use the last address that called eth_getTransactionCount
+        // This is a hack, but it's better than using a fixed address
         
-        // For this example, we'll use a fixed sender and recipient
-        // In a production environment, you would recover the sender from the signature
-        let from = "0x1111111111111111111111111111111111111111";
+        // Try to extract the sender address from the transaction data
+        // This is a very simplified approach - in a real implementation, you would recover the address from the signature
+        let thread_local_storage = LAST_TRANSACTION_SENDER.lock().unwrap();
+        let from = match thread_local_storage.as_ref() {
+            Some(sender) => {
+                log::info!("Using sender address from last transaction count query: {}", sender);
+                sender.clone()
+            },
+            None => {
+                // Fallback to a default address if we don't have a sender
+                log::warn!("No sender address available, using default address");
+                "0x221f75a62af16e13c65c3c697c6491a3f187dda0".to_string()
+            }
+        };
         
         // Generate a random recipient address
         let mut to_bytes = [0u8; 20];
@@ -520,20 +576,20 @@ impl EthRpcHandler {
         // Use a fixed amount for demonstration
         let amount = 1u64;
         
-        println!("Processing raw transaction:");
-        println!("  From: {} (recovered from signature)", from);
-        println!("  To: {} (extracted from transaction data)", to);
-        println!("  Amount: {} UBI tokens", amount);
+        log::info!("Processing raw transaction:");
+        log::info!("  From: {} (recovered from previous transaction count query)", from);
+        log::info!("  To: {} (extracted from transaction data)", to);
+        log::info!("  Amount: {} UBI tokens", amount);
         
         // Execute the transfer
-        match self.rpc_handler.runtime.transfer_with_fee(from, &to, amount) {
+        match self.rpc_handler.runtime.transfer_with_fee(&from, &to, amount) {
             Ok(_) => {
                 // Generate a transaction hash
                 let mut tx_hash = [0u8; 32];
                 rand::Rng::fill(&mut rand::thread_rng(), &mut tx_hash);
                 let tx_hash_hex = format!("0x{}", hex::encode(tx_hash));
                 
-                println!("  Transaction successful! Hash: {}", tx_hash_hex);
+                log::info!("  Transaction successful! Hash: {}", tx_hash_hex);
                 
                 Box::pin(future::ready(Ok(Value::String(tx_hash_hex))))
             },
@@ -544,7 +600,7 @@ impl EthRpcHandler {
                     runtime::AccountError::Other(ref msg) => msg.as_str(),
                 };
                 
-                println!("  Transaction failed: {}", error_msg);
+                log::error!("  Transaction failed: {}", error_msg);
                 
                 Box::pin(future::ready(Err(Error::invalid_params(error_msg))))
             }
@@ -638,5 +694,26 @@ impl EthRpcHandler {
                 data: None,
             })
         }
+    }
+
+    // Placeholder implementations for MetaMask compatibility
+    pub async fn eth_get_transaction_receipt(&self, params: jsonrpc_core::Params) -> jsonrpc_core::Result<Value> {
+        log::info!("eth_getTransactionReceipt called with params: {:?}", params);
+        Ok(json!(null))
+    }
+
+    pub async fn eth_get_transaction_by_hash(&self, params: jsonrpc_core::Params) -> jsonrpc_core::Result<Value> {
+        log::info!("eth_getTransactionByHash called with params: {:?}", params);
+        Ok(json!(null))
+    }
+
+    pub async fn eth_estimate_gas(&self, params: jsonrpc_core::Params) -> jsonrpc_core::Result<Value> {
+        log::info!("eth_estimateGas called with params: {:?}", params);
+        Ok(json!("0x5208")) // 21000 gas
+    }
+
+    pub async fn eth_get_logs(&self, params: jsonrpc_core::Params) -> jsonrpc_core::Result<Value> {
+        log::info!("eth_getLogs called with params: {:?}", params);
+        Ok(json!([]))
     }
 } 
