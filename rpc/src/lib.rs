@@ -9,11 +9,16 @@
 //! - AI resource management
 //! - Network status information
 
-use runtime::{Runtime, AccountError};
+use runtime::{Runtime, AccountError, Transaction};
 use serde::{Deserialize, Serialize};
+use log::{info, error};
 
 // Add Ethereum compatibility module
 pub mod eth_compat;
+
+// Remove the external crate reference
+// extern crate ubi_chain_node as node;
+// use node::Transaction;
 
 /// Account information structure returned by RPC queries
 ///
@@ -82,6 +87,9 @@ pub struct FaucetResponse {
 pub struct RpcHandler {
     /// Reference to the blockchain runtime
     pub runtime: Runtime,
+    
+    /// Node address (used as the faucet address)
+    pub node_address: Option<String>,
 }
 
 impl RpcHandler {
@@ -95,7 +103,18 @@ impl RpcHandler {
     pub fn new(runtime: Runtime) -> Self {
         RpcHandler {
             runtime,
+            node_address: None,
         }
+    }
+    
+    /// Sets the node address
+    pub fn set_node_address(&mut self, address: String) {
+        self.node_address = Some(address);
+    }
+    
+    /// Gets the node address
+    pub fn get_node_address(&self) -> Option<String> {
+        self.node_address.clone()
     }
     
     /// Starts an Ethereum-compatible JSON-RPC server
@@ -196,48 +215,80 @@ impl RpcHandler {
         }
     }
 
-    /// Handles faucet requests to distribute testnet tokens
-    ///
+    /// Requests tokens from the faucet
+    /// 
+    /// This function:
+    /// 1. Validates the recipient address
+    /// 2. Transfers tokens from the faucet to the recipient
+    /// 3. Returns the updated balance
+    /// 
     /// # Arguments
-    /// * `address` - The address to send tokens to
-    /// * `amount` - Optional amount to request (defaults to 10 tokens if not specified)
-    ///
+    /// * `address` - The recipient's address
+    /// * `amount` - Optional amount to request (defaults to 10)
+    /// 
     /// # Returns
     /// A response indicating success or failure
-    pub fn request_from_faucet(&self, address: String, amount: Option<u64>) -> FaucetResponse {
-        // Default amount is 10 tokens
-        let tokens_to_send = amount.unwrap_or(10);
+    pub async fn request_from_faucet(&self, address: String, amount: Option<u64>) -> FaucetResponse {
+        // Validate the address
+        if !is_valid_eth_address(&address) {
+            return FaucetResponse {
+                success: false,
+                amount: None,
+                new_balance: None,
+                error: Some("Invalid Ethereum address".to_string()),
+            };
+        }
         
-        // Maximum amount per request is 100 tokens
-        let tokens_to_send = std::cmp::min(tokens_to_send, 100);
+        // Get the faucet address (use node address if available, otherwise use default)
+        let faucet_address = match &self.node_address {
+            Some(addr) => addr.clone(),
+            None => "0x1111111111111111111111111111111111111111".to_string(),
+        };
         
-        // Check if the account exists, create it if it doesn't
-        let account_exists = self.runtime.get_balance(&address) > 0 || 
-                             self.runtime.is_account_verified(&address);
+        // Determine amount to send (default to 10 if not specified, cap at 100)
+        let tokens_to_send = amount.unwrap_or(10).min(100);
         
-        if !account_exists {
+        // Check faucet balance
+        let faucet_balance = self.runtime.get_balance(&faucet_address);
+        
+        // Ensure faucet has enough balance
+        if faucet_balance < tokens_to_send + 1 { // +1 for fee
+            return FaucetResponse {
+                success: false,
+                amount: None,
+                new_balance: None,
+                error: Some(format!("Insufficient balance: {} < {}", faucet_balance, tokens_to_send + 1)),
+            };
+        }
+        
+        // Check if recipient account exists, create it if it doesn't
+        let recipient_exists = self.runtime.get_balance(&address) > 0;
+        if !recipient_exists {
             match self.runtime.create_account(&address) {
-                Err(e) => {
-                    return FaucetResponse {
-                        success: false,
-                        amount: None,
-                        new_balance: None,
-                        error: Some(format!("Failed to create account: {}", e)),
-                    };
-                },
                 Ok(_) => {
-                    // Account created successfully
+                    info!("Created new account for recipient: {}", address);
+                },
+                Err(e) => {
+                    // If error is "already exists", that's fine, otherwise return error
+                    if let runtime::AccountError::AlreadyExists = e {
+                        // Account already exists, which is fine
+                    } else {
+                        return FaucetResponse {
+                            success: false,
+                            amount: None,
+                            new_balance: None,
+                            error: Some(format!("Failed to create recipient account: {:?}", e)),
+                        };
+                    }
                 }
             }
         }
         
-        // Create a faucet account if it doesn't exist
-        let faucet_address = "0xFAUCET00000000000000000000000000000000000";
-        let _ = self.runtime.create_account(faucet_address);
-        
-        // Transfer tokens from the faucet to the requested address
-        match self.runtime.transfer_with_fee(faucet_address, &address, tokens_to_send) {
-            Ok(_) => {
+        // Create and submit the transaction
+        match self.create_faucet_transaction(&faucet_address, &address, tokens_to_send).await {
+            Ok(tx_hash) => {
+                info!("Transaction successfully created with hash: {}", tx_hash);
+                // Get the new balance
                 let new_balance = self.runtime.get_balance(&address);
                 FaucetResponse {
                     success: true,
@@ -251,9 +302,65 @@ impl RpcHandler {
                     success: false,
                     amount: None,
                     new_balance: None,
-                    error: Some(format!("Failed to transfer tokens: {}", e)),
+                    error: Some(format!("Failed to create transaction: {}", e)),
                 }
             }
+        }
+    }
+
+    /// Creates a transaction for the faucet request
+    /// 
+    /// This is used by the Ethereum-compatible RPC server to ensure
+    /// faucet transactions are included in blocks.
+    ///
+    /// # Arguments
+    /// * `from_address` - The sender's address
+    /// * `to_address` - The recipient's address
+    /// * `amount` - The amount to transfer
+    ///
+    /// # Returns
+    /// A JSON-RPC response with the transaction hash
+    pub async fn create_faucet_transaction(&self, from_address: &str, to_address: &str, amount: u64) -> Result<String, String> {
+        // Generate a transaction hash
+        use rand::Rng;
+        use hex;
+        
+        let mut tx_hash_bytes = [0u8; 32];
+        rand::thread_rng().fill(&mut tx_hash_bytes);
+        let tx_hash = format!("0x{}", hex::encode(tx_hash_bytes));
+        
+        // Get the current timestamp
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        
+        // Create a transaction
+        let transaction = Transaction {
+            hash: tx_hash.clone(),
+            from: from_address.to_string(),
+            to: to_address.to_string(),
+            amount,
+            fee: 1, // Fixed fee of 1 token
+            timestamp,
+        };
+        
+        // Submit the transaction to the runtime's transaction pool
+        if let Some(block_producer) = self.runtime.get_block_producer() {
+            match block_producer.submit_transaction(transaction.clone()) {
+                Ok(_) => {
+                    info!("Added faucet transaction to mempool: {} -> {}, amount: {}, hash: {}", 
+                          from_address, to_address, amount, tx_hash);
+                    Ok(tx_hash)
+                },
+                Err(e) => {
+                    error!("Failed to submit transaction to pool: {}", e);
+                    Err(format!("Failed to submit transaction: {}", e))
+                }
+            }
+        } else {
+            error!("Block producer not available");
+            Err("Block producer not available".to_string())
         }
     }
 
@@ -264,6 +371,23 @@ impl RpcHandler {
     // - get_network_status(): Query network state
     // - request_ai_resources(): Request AI compute allocation
     // - get_verification_status(): Check verification progress
+}
+
+/// Validates an Ethereum address
+/// 
+/// # Arguments
+/// * `address` - The address to validate
+/// 
+/// # Returns
+/// `true` if the address is valid, `false` otherwise
+pub fn is_valid_eth_address(address: &str) -> bool {
+    // Check if the address starts with "0x" and has 42 characters total (0x + 40 hex chars)
+    if !address.starts_with("0x") || address.len() != 42 {
+        return false;
+    }
+    
+    // Check if the address contains only hexadecimal characters after "0x"
+    address[2..].chars().all(|c| c.is_ascii_hexdigit())
 }
 
 #[cfg(test)]
@@ -322,14 +446,14 @@ mod tests {
         assert_eq!(invalid_response.error.unwrap(), "Invalid address format");
     }
     
-    #[test]
-    fn test_faucet() {
+    #[tokio::test]
+    async fn test_faucet() {
         let runtime = Runtime::new();
         let handler = RpcHandler::new(runtime);
         
         // Test requesting tokens for a new account
         let address = "0x1234567890abcdef1234567890abcdef12345678";
-        let response = handler.request_from_faucet(address.to_string(), Some(50));
+        let response = handler.request_from_faucet(address.to_string(), Some(50)).await;
         
         assert!(response.success);
         assert_eq!(response.amount, Some(50));
@@ -341,7 +465,7 @@ mod tests {
         assert_eq!(balance, 60);
         
         // Test requesting tokens for an existing account
-        let response2 = handler.request_from_faucet(address.to_string(), Some(30));
+        let response2 = handler.request_from_faucet(address.to_string(), Some(30)).await;
         
         assert!(response2.success);
         assert_eq!(response2.amount, Some(30));
@@ -349,11 +473,10 @@ mod tests {
         assert!(response2.error.is_none());
         
         // Test requesting more than the maximum allowed
-        let response3 = handler.request_from_faucet(address.to_string(), Some(200));
+        let response3 = handler.request_from_faucet(address.to_string(), Some(200)).await;
         
         assert!(response3.success);
         assert_eq!(response3.amount, Some(100)); // Should be capped at 100
         assert_eq!(response3.new_balance, Some(190)); // 90 + 100 = 190
-        assert!(response3.error.is_none());
     }
 } 

@@ -16,8 +16,8 @@ use tokio::time::{self, Duration, Instant};
 use std::sync::Arc;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
-use runtime::Runtime;
-use std::time::SystemTime;
+use runtime::{Runtime, BlockProducer as BlockProducerTrait};
+use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Serialize, Deserialize};
 
 mod p2p;
@@ -184,6 +184,9 @@ pub struct BlockProducer {
     /// Node identifier (for block producer field)
     node_id: String,
     
+    /// Node address (for receiving block rewards)
+    node_address: String,
+    
     /// Channel for submitting transactions
     tx_sender: broadcast::Sender<Transaction>,
     
@@ -197,15 +200,23 @@ impl BlockProducer {
         runtime: Runtime,
         block_time_ms: u64,
         node_id: String,
+        node_address: String,
         tx_sender: broadcast::Sender<Transaction>,
         block_sender: mpsc::Sender<Block>,
     ) -> Self {
+        // Ensure the node account exists
+        match runtime.create_account(&node_address) {
+            Ok(_) => debug!("Node account created: {}", node_address),
+            Err(_) => debug!("Node account already exists: {}", node_address),
+        }
+        
         BlockProducer {
             runtime,
             tx_pool: TransactionPool::new(50), // Allow up to 50 transactions per block
             current_block: Arc::new(AtomicU64::new(0)),
             block_time_ms,
             node_id,
+            node_address,
             tx_sender,
             block_sender,
         }
@@ -271,69 +282,69 @@ impl BlockProducer {
         }
     }
     
-    /// Produces a new block
+    /// Produces a new block with pending transactions
     async fn produce_block(&self) -> Result<Block, String> {
-        // Get the next block number
-        let block_number = self.current_block.fetch_add(1, Ordering::SeqCst) + 1;
-        
         // Get transactions from the pool
-        let transactions = self.tx_pool.get_transactions_for_block();
-        debug!("Got {} transactions for block #{}", transactions.len(), block_number);
+        let pending_transactions = self.tx_pool.get_transactions_for_block();
+        let mut successful_transactions = Vec::new();
         
-        // Process transactions
-        for tx in &transactions {
+        // Process each transaction
+        for tx in pending_transactions {
             match self.runtime.transfer_with_fee(&tx.from, &tx.to, tx.amount) {
                 Ok(_) => {
-                    debug!("Processed transaction: {} -> {}, amount: {}", tx.from, tx.to, tx.amount);
+                    info!("Successfully processed transaction: {} -> {}, amount: {}", tx.from, tx.to, tx.amount);
+                    successful_transactions.push(tx);
                 },
                 Err(e) => {
-                    warn!("Failed to process transaction: {:?}", e);
-                    // In a real implementation, we would remove invalid transactions
-                    // or move them to a separate "failed" queue
+                    error!("Failed to process transaction: {} -> {}, amount: {}, error: {:?}", 
+                           tx.from, tx.to, tx.amount, e);
                 }
             }
         }
         
-        // Distribute fees if there are any
-        if !transactions.is_empty() {
-            let distributed = self.runtime.distribute_fees();
-            if distributed > 0 {
-                debug!("Distributed {} tokens in fees", distributed);
+        // Get current block number
+        let block_number = self.current_block.fetch_add(1, Ordering::SeqCst) + 1;
+        
+        // Get parent block hash (use a simple hash of the block number for now)
+        let parent_hash = format!("0x{:x}", block_number - 1);
+        
+        // Credit block reward to producer
+        match self.runtime.credit_balance(&self.node_address, 100) {
+            Ok(new_balance) => {
+                info!("Block #{} reward: 100 UBI tokens to {}, new balance: {}", 
+                      block_number, self.node_address, new_balance);
+            },
+            Err(e) => {
+                error!("Failed to credit block reward: {:?}", e);
             }
         }
         
-        // Get the current timestamp
+        // Create block hash (simple concatenation for now)
+        let block_hash = format!("0x{:x}", block_number);
+        
+        // Get current timestamp
         let timestamp = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
+            .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        
-        // Create a mock state root (in a real implementation, this would be the Merkle root)
-        let state_root = if let Some(checkpoint) = self.runtime.latest_checkpoint() {
-            format!("0x{}", hex::encode(checkpoint.root_hash))
-        } else {
-            "0x0000000000000000000000000000000000000000000000000000000000000000".to_string()
-        };
-        
-        // Create a mock block hash
-        let parent_hash = if block_number > 1 {
-            format!("0x{:064x}", block_number - 1)
-        } else {
-            "0x0000000000000000000000000000000000000000000000000000000000000000".to_string()
-        };
-        
-        let hash = format!("0x{:064x}", block_number);
         
         // Create the block
         let block = Block {
             number: block_number,
-            hash,
+            hash: block_hash,
             parent_hash,
             timestamp,
-            transactions,
-            state_root,
+            transactions: successful_transactions.clone(),
+            state_root: "0x0".to_string(), // Simplified for now
             producer: self.node_id.clone(),
         };
+        
+        info!("Produced block #{} with {} transactions", block.number, block.transactions.len());
+        
+        // Send block to subscribers
+        if let Err(e) = self.block_sender.send(block.clone()).await {
+            error!("Failed to broadcast block: {}", e);
+        }
         
         Ok(block)
     }
@@ -348,6 +359,27 @@ impl BlockProducer {
     
     /// Gets the current block number
     pub fn current_block(&self) -> u64 {
+        self.current_block.load(Ordering::SeqCst)
+    }
+}
+
+impl BlockProducerTrait for BlockProducer {
+    fn submit_transaction(&self, tx: runtime::Transaction) -> Result<(), String> {
+        let node_tx = Transaction {
+            hash: tx.hash,
+            from: tx.from,
+            to: tx.to,
+            amount: tx.amount,
+            fee: tx.fee,
+            timestamp: tx.timestamp,
+        };
+
+        // Directly add transaction to the pool
+        self.tx_pool.add_transaction(node_tx);
+        Ok(())
+    }
+    
+    fn current_block(&self) -> u64 {
         self.current_block.load(Ordering::SeqCst)
     }
 }
@@ -410,6 +442,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create Ethereum RPC server address
     let eth_rpc_addr = format!("{}:{}", args.eth_rpc_host, args.eth_rpc_port);
     
+    // Generate a node address based on the port (for simplicity)
+    // In a production environment, this would be a proper Ethereum address
+    let node_address = format!("0x{:040x}", args.port);
+    info!("Node address: {}", node_address);
+    
     // Initialize blockchain runtime with custom checkpoint configuration
     let runtime = Runtime::with_checkpoint_config(
         20, // Keep up to 20 checkpoints
@@ -418,7 +455,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Initialized blockchain runtime");
     
     // Create RPC handler
-    let rpc_handler = rpc::RpcHandler::new(runtime.clone());
+    let mut rpc_handler = rpc::RpcHandler::new(runtime.clone());
+    
+    // Set the node address in the RPC handler
+    rpc_handler.set_node_address(node_address.clone());
+    info!("Set node address as faucet address: {}", node_address);
     
     // Create channels for transactions and blocks
     let (tx_sender, _) = broadcast::channel(100);
@@ -429,9 +470,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         runtime.clone(),
         1000, // 1 second block time
         format!("node-{}", args.port),
+        node_address.clone(),
         tx_sender,
         block_sender,
     ));
+    
+    // Set the block producer reference in the runtime
+    runtime.set_block_producer(block_producer.clone());
     
     // Start block production
     let block_producer_clone = block_producer.clone();
@@ -571,7 +616,7 @@ async fn run_rpc_server(addr: &str, rpc_handler: rpc::RpcHandler) -> Result<(), 
                                                         info!("Faucet request from {}: address={}, amount={:?}", 
                                                              peer_addr, address, amount);
                                                         
-                                                        let response = handler.request_from_faucet(address.to_string(), amount);
+                                                        let response = handler.request_from_faucet(address.to_string(), amount).await;
                                                         
                                                         if response.success {
                                                             info!("Faucet request successful: sent {} tokens to {}, new balance: {}",

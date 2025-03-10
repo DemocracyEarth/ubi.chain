@@ -11,7 +11,7 @@
             margin: 0 auto;
             padding: 20px;
         }
-        h1 {
+        h1, h2 {
             color: #333;
         }
         button {
@@ -35,6 +35,7 @@
             border: 1px solid #ddd;
             border-radius: 4px;
             background-color: #f9f9f9;
+            white-space: pre-wrap;
         }
         .error {
             color: red;
@@ -42,10 +43,28 @@
         .success {
             color: green;
         }
+        .info-box {
+            background-color: #e8f4f8;
+            border: 1px solid #b8d8e8;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 15px 0;
+        }
     </style>
 </head>
 <body>
     <h1>UBI Chain Minimal Faucet</h1>
+    
+    <div class="info-box">
+        <h2>How it Works</h2>
+        <p>This faucet is powered by the UBI Chain node's Proof-of-Stake mechanism:</p>
+        <ul>
+            <li>The node earns 100 UBI tokens for each block it produces</li>
+            <li>These tokens are used to fund the faucet</li>
+            <li>You can request up to 100 UBI tokens at a time</li>
+        </ul>
+        <p>The faucet will automatically create a transaction on the blockchain when you request tokens.</p>
+    </div>
     
     <div>
         <label for="address">Your MetaMask Address:</label>
@@ -55,10 +74,19 @@
     
     <div id="result"></div>
     
+    <div id="faucetInfo" class="info-box" style="display: none;">
+        <h2>Faucet Information</h2>
+        <div id="faucetAddress"></div>
+        <div id="faucetBalance"></div>
+    </div>
+    
     <script>
         const addressInput = document.getElementById('address');
         const sendButton = document.getElementById('sendButton');
         const resultDiv = document.getElementById('result');
+        const faucetInfoDiv = document.getElementById('faucetInfo');
+        const faucetAddressDiv = document.getElementById('faucetAddress');
+        const faucetBalanceDiv = document.getElementById('faucetBalance');
         
         // Auto-fill address from MetaMask if available
         if (window.ethereum && window.ethereum.selectedAddress) {
@@ -87,6 +115,89 @@
                 await connectMetaMask();
             }
         });
+        
+        // Get faucet information
+        async function getFaucetInfo() {
+            try {
+                // Get the latest block to find the block producer
+                const blockResponse = await fetch('http://localhost:8545', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        method: 'eth_getBlockByNumber',
+                        params: ['latest', false],
+                        id: 1
+                    })
+                });
+                
+                const blockData = await blockResponse.json();
+                
+                if (blockData.result) {
+                    const producer = blockData.result.producer || 'Unknown';
+                    
+                    // Get the node's address (which is the faucet address)
+                    // For simplicity, we'll use a test transaction to get the faucet address
+                    const faucetResponse = await fetch('http://localhost:8545', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            jsonrpc: '2.0',
+                            method: 'ubi_requestFromFaucet',
+                            params: ["0x0000000000000000000000000000000000000001", 1],
+                            id: 1
+                        })
+                    });
+                    
+                    const faucetData = await faucetResponse.json();
+                    
+                    if (faucetData.error && faucetData.error.message) {
+                        const errorMsg = faucetData.error.message;
+                        // Try to extract the faucet address from the error message
+                        const addressMatch = errorMsg.match(/0x[a-fA-F0-9]{40}/);
+                        
+                        if (addressMatch) {
+                            const faucetAddress = addressMatch[0];
+                            
+                            // Get the faucet balance
+                            const balanceResponse = await fetch('http://localhost:8545', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    jsonrpc: '2.0',
+                                    method: 'eth_getBalance',
+                                    params: [faucetAddress, 'latest'],
+                                    id: 1
+                                })
+                            });
+                            
+                            const balanceData = await balanceResponse.json();
+                            
+                            if (balanceData.result) {
+                                const balanceHex = balanceData.result;
+                                const balanceWei = parseInt(balanceHex, 16);
+                                const balanceUBI = balanceWei / 1000000000000000000;
+                                
+                                faucetAddressDiv.textContent = `Faucet Address: ${faucetAddress}`;
+                                faucetBalanceDiv.textContent = `Faucet Balance: ${balanceUBI} UBI`;
+                                faucetInfoDiv.style.display = 'block';
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error getting faucet info:', error);
+            }
+        }
+        
+        // Get faucet info on page load
+        getFaucetInfo();
         
         // Send tokens
         sendButton.addEventListener('click', async () => {
@@ -121,10 +232,18 @@
                 if (data.result) {
                     if (data.result.success) {
                         resultDiv.textContent = `Success! ${data.result.amount} UBI tokens sent to ${address}\nNew Balance: ${data.result.newBalance} UBI`;
+                        
+                        // If we have a transaction hash, display it
+                        if (data.result.transactionHash) {
+                            resultDiv.textContent += `\nTransaction Hash: ${data.result.transactionHash}`;
+                        }
                     } else {
                         resultDiv.textContent = `Success! 100 UBI tokens sent to ${address}`;
                     }
                     resultDiv.className = 'success';
+                    
+                    // Update faucet info after successful request
+                    setTimeout(getFaucetInfo, 2000);
                 } else if (data.error) {
                     resultDiv.textContent = `Error: ${data.error.message}`;
                     resultDiv.className = 'error';

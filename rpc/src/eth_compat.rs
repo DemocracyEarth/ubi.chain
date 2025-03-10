@@ -186,10 +186,8 @@ impl EthRpcHandler {
         let balance = self.rpc_handler.get_account_info(address.to_string()).balance;
         
         // Convert to wei (1 UBI token = 10^18 wei for Ethereum compatibility)
-        let wei_balance = balance.saturating_mul(1_000_000_000_000_000_000);
-        
-        // Format as hex string with 0x prefix
-        let hex_balance = format!("0x{:x}", wei_balance);
+        // Use a simple approach - just convert to hex with 18 zeros (representing decimals)
+        let hex_balance = format!("0x{:x}000000000000000000", balance);
         
         Box::pin(future::ready(Ok(Value::String(hex_balance))))
     }
@@ -547,30 +545,30 @@ impl EthRpcHandler {
     ///
     /// # Returns
     /// A future that resolves to a JSON-RPC result
-    pub fn ubi_request_from_faucet(&self, params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
+    pub async fn ubi_request_from_faucet(&self, params: jsonrpc_core::Params) -> jsonrpc_core::Result<Value> {
         let params = match params {
             jsonrpc_core::Params::Array(params) => params,
-            _ => return Box::pin(future::err(Error::invalid_params("Invalid parameters"))),
+            _ => return Err(Error::invalid_params("Invalid parameters")),
         };
         
         if params.is_empty() {
-            return Box::pin(future::err(Error::invalid_params("Missing address parameter")));
+            return Err(Error::invalid_params("Missing address parameter"));
         }
         
         let address = match params[0].as_str() {
             Some(address) => address,
-            None => return Box::pin(future::err(Error::invalid_params("Invalid address parameter"))),
+            None => return Err(Error::invalid_params("Invalid address parameter")),
         };
         
         if !is_valid_eth_address(address) {
-            return Box::pin(future::err(Error::invalid_params("Invalid Ethereum address format")));
+            return Err(Error::invalid_params("Invalid Ethereum address format"));
         }
         
         // Get optional amount parameter
         let amount = if params.len() > 1 {
             match params[1].as_u64() {
                 Some(amount) => Some(amount),
-                None => return Box::pin(future::err(Error::invalid_params("Invalid amount parameter"))),
+                None => return Err(Error::invalid_params("Invalid amount parameter")),
             }
         } else {
             None
@@ -579,22 +577,53 @@ impl EthRpcHandler {
         println!("Ethereum RPC: Faucet request for address={}, amount={:?}", address, amount);
         
         // Request tokens from the faucet
-        let response = self.rpc_handler.request_from_faucet(address.to_string(), amount);
+        let response = self.rpc_handler.request_from_faucet(address.to_string(), amount).await;
         
         if response.success {
             println!("Ethereum RPC: Faucet request successful: sent {} tokens to {}, new balance: {}",
                      response.amount.unwrap_or(0), address, response.new_balance.unwrap_or(0));
             
-            Box::pin(future::ok(json!({
-                "success": true,
-                "amount": response.amount,
-                "newBalance": response.new_balance,
-                "address": address
-            })))
+            // Get the faucet address from the RPC handler
+            let faucet_address = match self.rpc_handler.get_node_address() {
+                Some(addr) => addr,
+                None => "0x1111111111111111111111111111111111111111".to_string(),
+            };
+            
+            let tokens_sent = response.amount.unwrap_or(0);
+            
+            // Create a transaction and add it to the transaction pool
+            match self.rpc_handler.create_faucet_transaction(&faucet_address, address, tokens_sent).await {
+                Ok(tx_hash) => {
+                    println!("Ethereum RPC: Created faucet transaction with hash: {}", tx_hash);
+                    
+                    // Return success response with transaction hash
+                    Ok(json!({
+                        "success": true,
+                        "amount": response.amount,
+                        "newBalance": response.new_balance,
+                        "transactionHash": tx_hash
+                    }))
+                },
+                Err(e) => {
+                    println!("Ethereum RPC: Failed to create faucet transaction: {}", e);
+                    
+                    // Return success response without transaction hash
+                    Ok(json!({
+                        "success": true,
+                        "amount": response.amount,
+                        "newBalance": response.new_balance
+                    }))
+                }
+            }
         } else {
             println!("Ethereum RPC: Faucet request failed: {}", response.error.as_ref().unwrap_or(&"Unknown error".to_string()));
             
-            Box::pin(future::err(Error::internal_error()))
+            let error_message = response.error.unwrap_or_else(|| "Unknown error".to_string());
+            Err(Error {
+                code: jsonrpc_core::ErrorCode::InvalidRequest,
+                message: error_message,
+                data: None,
+            })
         }
     }
 } 

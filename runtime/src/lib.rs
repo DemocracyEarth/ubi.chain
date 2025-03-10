@@ -24,6 +24,9 @@ use std::path::Path;
 use sha2::{Sha256, Digest};
 use std::collections::VecDeque;
 
+// Add serde imports
+use serde::{Serialize, Deserialize};
+
 // Constants for UBI distribution
 const UBI_TOKENS_PER_HOUR: u64 = 1;
 
@@ -33,6 +36,37 @@ const DIVIDEND_PRECISION: u64 = 1_000_000_000; // 10^9 precision for dividend ca
 // Constants for the testnet faucet
 const FAUCET_ADDRESS: &str = "0xFAUCET00000000000000000000000000000000000";
 const FAUCET_MIN_BALANCE: u64 = 1_000_000; // Ensure faucet always has at least 1 million tokens
+
+// Add Transaction type definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Transaction {
+    /// Transaction hash
+    pub hash: String,
+    
+    /// Sender address
+    pub from: String,
+    
+    /// Recipient address
+    pub to: String,
+    
+    /// Amount to transfer
+    pub amount: u64,
+    
+    /// Transaction fee
+    pub fee: u64,
+    
+    /// Timestamp when the transaction was created
+    pub timestamp: u64,
+}
+
+// Add BlockProducer trait definition
+pub trait BlockProducer: Send + Sync {
+    /// Submits a transaction to the pool
+    fn submit_transaction(&self, tx: Transaction) -> Result<(), String>;
+    
+    /// Gets the current block number
+    fn current_block(&self) -> u64;
+}
 
 #[cfg(test)]
 mod tests {
@@ -565,6 +599,9 @@ pub struct Runtime {
     
     /// Directory to store checkpoint files
     checkpoint_dir: String,
+    
+    /// Reference to the block producer
+    block_producer: Arc<std::sync::RwLock<Option<Arc<dyn BlockProducer>>>>,
 }
 
 /// Represents a checkpoint of the blockchain state
@@ -1223,6 +1260,64 @@ impl Runtime {
     pub fn latest_checkpoint(&self) -> Option<StateCheckpoint> {
         self.checkpoints.lock().unwrap().last().cloned()
     }
+
+    /// Credits tokens to an account
+    /// 
+    /// This function:
+    /// 1. Checks if the account exists, creates it if not
+    /// 2. Adds the specified amount to the account's balance
+    /// 
+    /// # Arguments
+    /// * `address` - The account address to credit
+    /// * `amount` - The amount of tokens to credit
+    /// 
+    /// # Returns
+    /// The new balance of the account, or an error if the account doesn't exist
+    pub fn credit_balance(&self, address: &str, amount: u64) -> Result<u64, AccountError> {
+        let mut accounts = self.accounts.lock().unwrap();
+        
+        // Check if the account exists
+        if let Some(account) = accounts.get_mut(address) {
+            // Credit the account
+            account.balance += amount;
+            
+            // Update total supply
+            let mut total_supply = self.total_supply.lock().unwrap();
+            *total_supply += amount;
+            
+            Ok(account.balance)
+        } else {
+            // Create the account if it doesn't exist
+            match self.create_account(address) {
+                Ok(mut account) => {
+                    // Credit the account
+                    account.balance += amount;
+                    
+                    // Update the account in the map
+                    accounts.insert(address.to_string(), account.clone());
+                    
+                    // Update total supply
+                    let mut total_supply = self.total_supply.lock().unwrap();
+                    *total_supply += amount;
+                    
+                    Ok(account.balance)
+                },
+                Err(e) => Err(e),
+            }
+        }
+    }
+
+    /// Sets the block producer reference
+    pub fn set_block_producer(&self, producer: Arc<dyn BlockProducer>) {
+        let mut block_producer = self.block_producer.write().unwrap();
+        *block_producer = Some(producer);
+    }
+    
+    /// Gets the block producer reference
+    pub fn get_block_producer(&self) -> Option<Arc<dyn BlockProducer>> {
+        let block_producer = self.block_producer.read().unwrap();
+        block_producer.clone()
+    }
 }
 
 /// Validates if a string is a valid Ethereum address
@@ -1493,6 +1588,7 @@ impl Default for Runtime {
             checkpoints: Arc::new(std::sync::Mutex::new(Vec::new())),
             max_checkpoints: 10, // Default to keeping 10 checkpoints
             checkpoint_dir: "./checkpoints".to_string(),
+            block_producer: Arc::new(std::sync::RwLock::new(None)),
         }
     }
 } 

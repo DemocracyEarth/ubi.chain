@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UBI Chain Balance Checker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        input {
+            padding: 8px;
+            width: 100%;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+        .section {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            white-space: pre-wrap;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+        .info {
+            color: blue;
+        }
+    </style>
+</head>
+<body>
+    <h1>UBI Chain Balance Checker</h1>
+    
+    <div class="section">
+        <h2>Connect to MetaMask</h2>
+        <button id="connectButton">Connect MetaMask</button>
+        <div id="connectionStatus" class="result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>Account Information</h2>
+        <div id="accountInfo" class="result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>Get Tokens from Faucet</h2>
+        <button id="faucetButton">Request 100 UBI Tokens</button>
+        <div id="faucetResult" class="result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>Check Balance (Direct RPC Call)</h2>
+        <button id="checkBalanceButton">Check Balance</button>
+        <div id="balanceResult" class="result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>Create Transaction</h2>
+        <button id="createTxButton">Create Test Transaction</button>
+        <div id="txResult" class="result"></div>
+    </div>
+    
+    <script>
+        // DOM elements
+        const connectButton = document.getElementById('connectButton');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const accountInfo = document.getElementById('accountInfo');
+        const faucetButton = document.getElementById('faucetButton');
+        const faucetResult = document.getElementById('faucetResult');
+        const checkBalanceButton = document.getElementById('checkBalanceButton');
+        const balanceResult = document.getElementById('balanceResult');
+        const createTxButton = document.getElementById('createTxButton');
+        const txResult = document.getElementById('txResult');
+        
+        // Store connected accounts
+        let accounts = [];
+        
+        // Connect to MetaMask
+        connectButton.addEventListener('click', async () => {
+            connectionStatus.textContent = 'Connecting to MetaMask...';
+            connectionStatus.className = 'result info';
+            
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    throw new Error('MetaMask is not installed');
+                }
+                
+                accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                
+                connectionStatus.textContent = `Connected to MetaMask with account: ${accounts[0]}`;
+                connectionStatus.className = 'result success';
+                
+                // Update account info
+                updateAccountInfo();
+                
+                // Listen for account changes
+                window.ethereum.on('accountsChanged', (newAccounts) => {
+                    accounts = newAccounts;
+                    connectionStatus.textContent = `Account changed to: ${accounts[0]}`;
+                    updateAccountInfo();
+                });
+            } catch (error) {
+                connectionStatus.textContent = `Error connecting to MetaMask: ${error.message}`;
+                connectionStatus.className = 'result error';
+                console.error('MetaMask connection error:', error);
+            }
+        });
+
+        // Update account information
+        async function updateAccountInfo() {
+            if (accounts.length === 0) {
+                accountInfo.textContent = 'No account connected';
+                return;
+            }
+
+            const account = accounts[0];
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    throw new Error('MetaMask is not installed');
+                }
+                
+                const balance = await window.ethereum.request({
+                    method: 'eth_getBalance',
+                    params: [account, 'latest']
+                });
+                
+                // Convert balance from wei to UBI tokens (1 UBI = 10^18 wei)
+                const balanceInWei = parseInt(balance, 16);
+                const balanceInUBI = balanceInWei / 1000000000000000000;
+                
+                accountInfo.textContent = `Address: ${account}\nBalance (from MetaMask): ${balanceInUBI} UBI`;
+                accountInfo.className = 'result success';
+            } catch (error) {
+                accountInfo.textContent = `Error getting account info: ${error.message}`;
+                accountInfo.className = 'result error';
+                console.error('Account info error:', error);
+            }
+        }
+
+        // Request tokens from faucet
+        faucetButton.addEventListener('click', async () => {
+            if (accounts.length === 0) {
+                faucetResult.textContent = 'Please connect to MetaMask first';
+                faucetResult.className = 'result error';
+                return;
+            }
+            
+            const address = accounts[0];
+            faucetResult.textContent = 'Requesting tokens from faucet...';
+            faucetResult.className = 'result info';
+            
+            try {
+                // Create a simple JSON-RPC request
+                const response = await fetch('http://localhost:8545', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        method: 'ubi_requestFromFaucet',
+                        params: [address, 100],
+                        id: 1
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.result) {
+                    if (data.result.success) {
+                        faucetResult.textContent = `Success! ${data.result.amount} UBI tokens sent to ${address}\nNew Balance (in memory): ${data.result.newBalance} UBI`;
+                    } else {
+                        faucetResult.textContent = `Success! 100 UBI tokens sent to ${address}`;
+                    }
+                    faucetResult.className = 'result success';
+                    
+                    // Update account info after a short delay
+                    setTimeout(updateAccountInfo, 2000);
+                } else if (data.error) {
+                    faucetResult.textContent = `Error: ${data.error.message}`;
+                    faucetResult.className = 'result error';
+                } else {
+                    faucetResult.textContent = 'Unknown error occurred';
+                    faucetResult.className = 'result error';
+                }
+            } catch (error) {
+                faucetResult.textContent = `Error: ${error.message}`;
+                faucetResult.className = 'result error';
+                console.error('Faucet error:', error);
+            }
+        });
+        
+        // Check balance directly via RPC
+        checkBalanceButton.addEventListener('click', async () => {
+            if (accounts.length === 0) {
+                balanceResult.textContent = 'Please connect to MetaMask first';
+                balanceResult.className = 'result error';
+                return;
+            }
+            
+            const address = accounts[0];
+            balanceResult.textContent = 'Checking balance...';
+            balanceResult.className = 'result info';
+            
+            try {
+                // Create a direct eth_getBalance RPC request
+                const response = await fetch('http://localhost:8545', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        method: 'eth_getBalance',
+                        params: [address, 'latest'],
+                        id: 1
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.result) {
+                    const balanceInWei = parseInt(data.result, 16);
+                    const balanceInUBI = balanceInWei / 1000000000000000000;
+                    
+                    balanceResult.textContent = `Direct RPC Balance Check:\nAddress: ${address}\nBalance: ${balanceInUBI} UBI\nRaw Response: ${data.result}`;
+                    balanceResult.className = 'result success';
+                } else if (data.error) {
+                    balanceResult.textContent = `Error: ${data.error.message}`;
+                    balanceResult.className = 'result error';
+                } else {
+                    balanceResult.textContent = 'Unknown error occurred';
+                    balanceResult.className = 'result error';
+                }
+            } catch (error) {
+                balanceResult.textContent = `Error: ${error.message}`;
+                balanceResult.className = 'result error';
+                console.error('Balance check error:', error);
+            }
+        });
+        
+        // Create a test transaction
+        createTxButton.addEventListener('click', async () => {
+            if (accounts.length === 0) {
+                txResult.textContent = 'Please connect to MetaMask first';
+                txResult.className = 'result error';
+                return;
+            }
+            
+            txResult.textContent = 'Creating test transaction...';
+            txResult.className = 'result info';
+            
+            try {
+                // Create a small transaction to self (1 UBI)
+                const txHash = await window.ethereum.request({
+                    method: 'eth_sendTransaction',
+                    params: [{
+                        from: accounts[0],
+                        to: accounts[0],
+                        value: '0xDE0B6B3A7640000', // 1 UBI = 10^18 wei
+                        gas: '0x5208', // 21000 gas
+                        gasPrice: '0x3b9aca00', // 1 Gwei
+                    }],
+                });
+                
+                txResult.textContent = `Transaction sent!\nTransaction Hash: ${txHash}`;
+                txResult.className = 'result success';
+                
+                // Update account info after transaction
+                setTimeout(updateAccountInfo, 2000);
+            } catch (error) {
+                txResult.textContent = `Error sending transaction: ${error.message}`;
+                txResult.className = 'result error';
+                console.error('Transaction error:', error);
+            }
+        });
+    </script>
+</body>
+</html> 
