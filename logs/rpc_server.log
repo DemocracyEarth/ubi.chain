@@ -1,110 +1,492 @@
-warning: unused import: `warn`
-  --> rpc/src/lib.rs:14:17
+warning: constant `FAUCET_MIN_BALANCE` is never used
+  --> runtime/src/lib.rs:41:7
    |
-14 | use log::{info, warn, error};
-   |                 ^^^^
+41 | const FAUCET_MIN_BALANCE: u64 = 1_000_000; // Ensure faucet always has at least 1 million tokens
+   |       ^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `ubi-chain-runtime` (lib) generated 1 warning
+   Compiling ubi-chain-rpc v0.1.0 (/Users/santisiri/AI/ubi.chain/rpc)
+warning: unused import: `AccountError`
+  --> rpc/src/lib.rs:12:24
+   |
+12 | use runtime::{Runtime, AccountError, Transaction};
+   |                        ^^^^^^^^^^^^
    |
    = note: `#[warn(unused_imports)]` on by default
 
-warning: unused import: `Mutex`
-  --> rpc/src/lib.rs:25:22
-   |
-25 | use std::sync::{Arc, Mutex};
-   |                      ^^^^^
+warning: method `create_new_block` is never used
+   --> rpc/src/eth_compat.rs:915:8
+    |
+132 | impl EthRpcHandler {
+    | ------------------ method in this implementation
+...
+915 |     fn create_new_block(&self, transaction_hashes: Vec<String>) {
+    |        ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
 
-warning: unused imports: `SystemTime` and `UNIX_EPOCH`
-  --> rpc/src/lib.rs:26:17
-   |
-26 | use std::time::{SystemTime, UNIX_EPOCH};
-   |                 ^^^^^^^^^^  ^^^^^^^^^^
-
-warning: unused import: `std::collections::HashMap`
-  --> rpc/src/lib.rs:27:5
-   |
-27 | use std::collections::HashMap;
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
-
-warning: unused import: `std::fmt`
-  --> rpc/src/lib.rs:30:5
-   |
-30 | use std::fmt;
-   |     ^^^^^^^^
-
-warning: `ubi-chain-rpc` (lib) generated 5 warnings (run `cargo fix --lib -p ubi-chain-rpc` to apply 5 suggestions)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.24s
+warning: `ubi-chain-rpc` (lib) generated 2 warnings (run `cargo fix --lib -p ubi-chain-rpc` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.61s
      Running `target/debug/eth_rpc_server '127.0.0.1:8545' '127.0.0.1:8546' 2030`
-[2025-03-11T19:32:58Z INFO  eth_rpc_server] Starting Ethereum-compatible JSON-RPC servers
-[2025-03-11T19:32:58Z INFO  eth_rpc_server] HTTP server address: 127.0.0.1:8545
-[2025-03-11T19:32:58Z INFO  eth_rpc_server] WebSocket server address: 127.0.0.1:8546
-[2025-03-11T19:32:58Z INFO  eth_rpc_server] Chain ID: 2030
-[2025-03-11T19:32:58Z INFO  eth_rpc_server] Created node account: 0x0000000000000000000000000000000000000001
-[2025-03-11T19:32:58Z INFO  eth_rpc_server] Funded node account with 1,000,000 UBI tokens. New balance: 1000000
-[2025-03-11T19:32:58Z INFO  eth_rpc_server] HTTP server started successfully on 127.0.0.1:8545
-[2025-03-11T19:32:58Z INFO  parity_ws] Listening for new connections on 127.0.0.1:8546.
-[2025-03-11T19:32:58Z INFO  eth_rpc_server] WebSocket server started successfully on 127.0.0.1:8546
-[2025-03-11T19:33:00Z INFO  ubi_chain_rpc::eth_compat] eth_chainId called
-[2025-03-11T19:33:00Z INFO  ubi_chain_rpc::eth_compat] eth_chainId returning: 0x7ee
-Ethereum RPC: Faucet request for address=0x221f75a62Af16e13c65C3c697c6491a3F187DDA0, amount=Some(23)
-[2025-03-11T19:33:51Z INFO  ubi_chain_rpc] Created new account for recipient: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
-[2025-03-11T19:33:51Z INFO  ubi_chain_rpc] Faucet transfer successful: 23 tokens sent to 0x221f75a62af16e13c65c3c697c6491a3f187dda0
-Ethereum RPC: Faucet request successful: sent 23 tokens to 0x221f75a62Af16e13c65C3c697c6491a3F187DDA0, current balance: 23
-[2025-03-11T19:34:48Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
-[2025-03-11T19:34:48Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
-[2025-03-11T19:34:48Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
-[2025-03-11T19:34:48Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount called with params: Array([String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), String("0x0")])
-[2025-03-11T19:34:48Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount: Storing sender address: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
-[2025-03-11T19:34:48Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
-[2025-03-11T19:34:48Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
-[2025-03-11T19:34:51Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
-[2025-03-11T19:34:51Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
-[2025-03-11T19:34:51Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
-[2025-03-11T19:34:51Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
-[2025-03-11T19:34:51Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
-[2025-03-11T19:34:54Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
-[2025-03-11T19:34:54Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
-[2025-03-11T19:34:54Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
-[2025-03-11T19:34:54Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
-[2025-03-11T19:34:54Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
-[2025-03-11T19:34:57Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
-[2025-03-11T19:34:57Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
-[2025-03-11T19:34:57Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
-[2025-03-11T19:34:57Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
-[2025-03-11T19:34:57Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
-[2025-03-11T19:35:00Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
-[2025-03-11T19:35:00Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
-[2025-03-11T19:35:00Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
-[2025-03-11T19:35:00Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
-[2025-03-11T19:35:00Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
-[2025-03-11T19:35:03Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
-[2025-03-11T19:35:03Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
-[2025-03-11T19:35:03Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
-[2025-03-11T19:35:03Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
-[2025-03-11T19:35:03Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
-[2025-03-11T19:35:06Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
-[2025-03-11T19:35:06Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
-[2025-03-11T19:35:06Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
-[2025-03-11T19:35:06Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
-[2025-03-11T19:35:06Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
-[2025-03-11T19:35:09Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
-[2025-03-11T19:35:09Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
-[2025-03-11T19:35:09Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
-[2025-03-11T19:35:09Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
-[2025-03-11T19:35:09Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
-[2025-03-11T19:35:12Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
-[2025-03-11T19:35:12Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
-[2025-03-11T19:35:12Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
-[2025-03-11T19:35:12Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
-[2025-03-11T19:35:12Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
-[2025-03-11T19:35:15Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
-[2025-03-11T19:35:15Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
-[2025-03-11T19:35:15Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
-[2025-03-11T19:35:15Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
-[2025-03-11T19:35:15Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
-[2025-03-11T19:35:46Z INFO  ubi_chain_rpc::eth_compat] eth_estimateGas called with params: Array([Object {"data": String("0x"), "from": String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), "gasPrice": String("0x0"), "to": String("0x91b29b1f0cef5002191901f346208ef3f4ef67eb"), "value": String("0x0")}])
-[2025-03-11T19:35:48Z INFO  ubi_chain_rpc::eth_compat] eth_estimateGas called with params: Array([Object {"data": String("0x"), "from": String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), "gasPrice": String("0x0"), "to": String("0x91b29b1f0cef5002191901f346208ef3f4ef67eb"), "value": String("0xa688906bd8b00000")}])
-[2025-03-11T19:36:03Z INFO  ubi_chain_rpc::eth_compat] eth_estimateGas called with params: Array([Object {"data": String("0x"), "from": String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), "gasPrice": String("0x0"), "to": String("0x91b29b1f0cef5002191901f346208ef3f4ef67eb"), "value": String("0x68f365aea1e440000")}])
-[2025-03-11T19:36:11Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86904808252089491b29b1f0cef5002191901f346208ef3f4ef67eb88a688906bd8b0000080820fffa0381d5ec244247775cdf6e826ced42c5c958957b058624377af53bc27a4ce41b8a02174c4aa54c758c082c1a715a60be47a5c2832d4adf90a11292373716f1238a6")])
-[2025-03-11T19:36:11Z ERROR ubi_chain_rpc::eth_compat] Failed to decode transaction hex string
-[2025-03-11T19:36:11Z INFO  ubi_chain_rpc::eth_compat] Created sender account: 0x0000000000000000000000000000000000000000
-[2025-03-11T19:36:11Z INFO  ubi_chain_rpc::eth_compat] Created recipient account: 0xfe59a4dc63d8f377c8fbc3c179d7f07f7ba29106
-[2025-03-11T19:36:11Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x66d13e60e14e718cf68b046c34631bc4a7feac5560b19a3fd81aac26c8e10036
+[2025-03-11T23:20:52Z INFO  eth_rpc_server] Starting Ethereum-compatible JSON-RPC servers
+[2025-03-11T23:20:52Z INFO  eth_rpc_server] HTTP server address: 127.0.0.1:8545
+[2025-03-11T23:20:52Z INFO  eth_rpc_server] WebSocket server address: 127.0.0.1:8546
+[2025-03-11T23:20:52Z INFO  eth_rpc_server] Chain ID: 2030
+[2025-03-11T23:20:52Z INFO  eth_rpc_server] Created node account: 0x0000000000000000000000000000000000000001
+[2025-03-11T23:20:52Z INFO  eth_rpc_server] Funded node account with 1,000,000 UBI tokens. New balance: 1000000
+[2025-03-11T23:20:52Z INFO  eth_rpc_server] HTTP server started successfully on 127.0.0.1:8545
+[2025-03-11T23:20:52Z INFO  parity_ws] Listening for new connections on 127.0.0.1:8546.
+[2025-03-11T23:20:52Z INFO  eth_rpc_server] WebSocket server started successfully on 127.0.0.1:8546
+[2025-03-11T23:20:52Z INFO  ubi_chain_rpc::eth_compat] eth_chainId called
+[2025-03-11T23:20:52Z INFO  ubi_chain_rpc::eth_compat] eth_chainId returning: 0x7ee
+[2025-03-11T23:20:58Z INFO  ubi_chain_rpc::eth_compat] Ethereum RPC: Faucet request for address=0x91b29B1f0CEf5002191901F346208Ef3F4ef67eb, amount=None
+[2025-03-11T23:20:58Z INFO  ubi_chain_rpc] Created new account for recipient: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:20:58Z INFO  ubi_chain_rpc] Faucet transfer successful: 10 tokens sent to 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:20:58Z INFO  ubi_chain_rpc::eth_compat] Ethereum RPC: Faucet request successful: sent 10 tokens to 0x91b29B1f0CEf5002191901F346208Ef3F4ef67eb, current balance: 10
+[2025-03-11T23:21:13Z INFO  ubi_chain_rpc::eth_compat] eth_sendTransaction called with params: Array([Object {"from": String("0x91b29B1f0CEf5002191901F346208Ef3F4ef67eb"), "to": String("0x1234567890123456789012345678901234567890"), "value": String("0x1")}])
+[2025-03-11T23:21:13Z INFO  ubi_chain_rpc::eth_compat] Processing transaction from MetaMask:
+[2025-03-11T23:21:13Z INFO  ubi_chain_rpc::eth_compat]   From: 0x91b29B1f0CEf5002191901F346208Ef3F4ef67eb
+[2025-03-11T23:21:13Z INFO  ubi_chain_rpc::eth_compat]   To: 0x1234567890123456789012345678901234567890
+[2025-03-11T23:21:13Z INFO  ubi_chain_rpc::eth_compat]   Value (wei): 1
+[2025-03-11T23:21:13Z INFO  ubi_chain_rpc::eth_compat]   Value (UBI tokens): 1
+[2025-03-11T23:21:13Z INFO  ubi_chain_rpc::eth_compat]   Recipient account does not exist, creating it: 0x1234567890123456789012345678901234567890
+[2025-03-11T23:21:13Z INFO  ubi_chain_rpc::eth_compat]   Successfully created recipient account: 0x1234567890123456789012345678901234567890
+[2025-03-11T23:21:13Z INFO  ubi_chain_rpc::eth_compat]   Transaction successful! Hash: 0x4a35d47d3d16135de6dc687af93f10d6be9cab3d8ef3518fcbfa5efcca1dc416
+[2025-03-11T23:21:13Z INFO  ubi_chain_rpc::eth_compat] Created new block: 0 (0x15aece0193d2763a5355cad2ce3d13022f0653aaadf6e7d2b20fd7eda6ff6aed)
+[2025-03-11T23:21:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:21:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:21:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:21:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:21:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:21:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount called with params: Array([String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), String("0x1")])
+[2025-03-11T23:21:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount: Storing sender address: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:21:51Z INFO  ubi_chain_rpc::eth_compat] eth_sendTransaction called with params: Array([Object {"from": String("0x91b29B1f0CEf5002191901F346208Ef3F4ef67eb"), "to": String("0x1234567890123456789012345678901234567890"), "value": String("0x2")}])
+[2025-03-11T23:21:51Z INFO  ubi_chain_rpc::eth_compat] Processing transaction from MetaMask:
+[2025-03-11T23:21:51Z INFO  ubi_chain_rpc::eth_compat]   From: 0x91b29B1f0CEf5002191901F346208Ef3F4ef67eb
+[2025-03-11T23:21:51Z INFO  ubi_chain_rpc::eth_compat]   To: 0x1234567890123456789012345678901234567890
+[2025-03-11T23:21:51Z INFO  ubi_chain_rpc::eth_compat]   Value (wei): 2
+[2025-03-11T23:21:51Z INFO  ubi_chain_rpc::eth_compat]   Value (UBI tokens): 1
+[2025-03-11T23:21:51Z INFO  ubi_chain_rpc::eth_compat]   Transaction successful! Hash: 0x76eb4ef26a59eaa612e8672fbc052cae45aae5a8dda2c2ec5555c6c73dd50204
+[2025-03-11T23:21:51Z INFO  ubi_chain_rpc::eth_compat] Created new block: 1 (0xc36abbb01b465b1162c7d0207008e13b10dc481678f4f689483885e5b871b0d6)
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount called with params: Array([String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), String("0x2")])
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount: Storing sender address: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86a80808252089491b29b1f0cef5002191901f346208ef3f4ef67eb890238fd42c5cf04000080821000a0f079310132ea12d6a53d351e3861a0cd98725dcdd639d89cc30ed0d13c2f3d91a05b3fc6495baee30b3e218c2aebda01c7927976637dd65ff48bf36cf4e05e2f67")])
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Found value using marker approach: 160156250000000000 wei
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 160156250000000000 wei (1 UBI)
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 1
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Created sender account: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Funded sender account with 1000 tokens
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0xe50ccdc0518d6769cd0e6e4e03db885617a6863b0993871eed4edb9287a6cfad
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Created new block: 2 (0xbc597ca2c86a6d29d5f1000c0027a30a725da3726f7ff144e4a47574f4832e5e)
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86a01808252089491b29b1f0cef5002191901f346208ef3f4ef67eb8903bd913e6c1df4000080821000a06ffe6bd8150a5032aa43da99e411096c8eee9d73cde718832318f71afe816986a07a7819d2e1b6b84be1e04740a55fda4cce48bd49a05964b29502553da3cc48b8")])
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Found value using marker approach: 269531250000000000 wei
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 269531250000000000 wei (1 UBI)
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 1
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x0cb2277fad2d0a716de146535af7e226f02d573e07efb9fafffe8c7841e7b8a7
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Created new block: 3 (0x8277ea13eb5a8819acae071b29be2adf62fdd89c6b2e4db29596c1c5a0505979)
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf861808082520894221f75a62af16e13c65c3c697c6491a3f187dda08080821000a02afe8df33935424d14fee15ed5903bca3ab4af3db29b33df8192d970c8327a14a040d4a594c02a3c6a435befaa88c32d211eac5596d511463853456c132392036a")])
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Found value after address: 721332305044673364 wei
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, Value: 721332305044673364 wei (1 UBI)
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, Value: 1
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x33f99d54285c266a150bd84506904a5703fd742b74e50d74007e50c33e1b8d6c
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Created new block: 4 (0xe646cb5312d3af9fb12786347f8f0556870cbcf422269e71364821706f30027b)
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86102808252089491b29b1f0cef5002191901f346208ef3f4ef67eb8080820fffa00ddb415efa1914e0b84b477983d5e521f2b5a28e51f328a54c7841fa93cd7305a07bf91acf8fe37ccc9978a2f6e907e1f921b47f68fa534e342211c050854e592b")])
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Found potential value using fallback method: 17897589145112545428 wei
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 17897589145112545428 wei (17 UBI)
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 17
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x96ce4cf650b4f171027f2054b593d64380159c71b52821d1d0f6333585961cfe
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Created new block: 5 (0xbbda2439ed7dfb93b49b408332ea7a503369af11f9d5c97cdd37404cc9c4c1d2)
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86903808252089491b29b1f0cef5002191901f346208ef3f4ef67eb88a688906bd8b0000080820fffa0865ea5bd6140b5ddd95f490697934d3cfd89e9306c0dc488ef47df41b36e32a1a01bf5a3c22bffd3351f24ab25c81e1d8721ac5b40c7c07b410a1ca37602cc6478")])
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Found pattern for 12 UBI in transaction
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 12
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x524d30766140b5765fb4b20fd46c5c6a3d8a7dc0a0ef405504b062bc4efb4fcb
+[2025-03-11T23:21:53Z INFO  ubi_chain_rpc::eth_compat] Created new block: 6 (0x1a206d71993cbbf2c455f48df7e2de4f55276613d088c95bb95d3393ab67027d)
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount called with params: Array([String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), String("0x7")])
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount: Storing sender address: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86a80808252089491b29b1f0cef5002191901f346208ef3f4ef67eb890238fd42c5cf04000080821000a0f079310132ea12d6a53d351e3861a0cd98725dcdd639d89cc30ed0d13c2f3d91a05b3fc6495baee30b3e218c2aebda01c7927976637dd65ff48bf36cf4e05e2f67")])
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Found value using marker approach: 160156250000000000 wei
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 160156250000000000 wei (1 UBI)
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 1
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x479c7be46ff59c5b703ccc2e1c64bad1cf0b14baf515c9744cbba8aeb40f0edd
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Created new block: 7 (0x1ba99ff81186b4bc6ac0b5ff4d5cc07012b4fea953199e94500bf7f58536b379)
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86a01808252089491b29b1f0cef5002191901f346208ef3f4ef67eb8903bd913e6c1df4000080821000a06ffe6bd8150a5032aa43da99e411096c8eee9d73cde718832318f71afe816986a07a7819d2e1b6b84be1e04740a55fda4cce48bd49a05964b29502553da3cc48b8")])
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Found value using marker approach: 269531250000000000 wei
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 269531250000000000 wei (1 UBI)
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 1
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0xc285de523f613e87edbcf9077f33b29aa7202045c6cf79f4c4cb57189c11bf43
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Created new block: 8 (0xad01679ef3d8f219b38a31aa0b25b031bdecae38886e5c6485641621f943ce80)
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf861808082520894221f75a62af16e13c65c3c697c6491a3f187dda08080821000a02afe8df33935424d14fee15ed5903bca3ab4af3db29b33df8192d970c8327a14a040d4a594c02a3c6a435befaa88c32d211eac5596d511463853456c132392036a")])
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Found value after address: 721332305044673364 wei
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, Value: 721332305044673364 wei (1 UBI)
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, Value: 1
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x69b4f6cadb4acd70b52ab7cade09babaf0e431f4244d0b8a9f58e8c096e2fa10
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Created new block: 9 (0xdc899d5c08996964116d0f5a2952f4fad624307e18db11774f4d3e051bfe7d25)
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86102808252089491b29b1f0cef5002191901f346208ef3f4ef67eb8080820fffa00ddb415efa1914e0b84b477983d5e521f2b5a28e51f328a54c7841fa93cd7305a07bf91acf8fe37ccc9978a2f6e907e1f921b47f68fa534e342211c050854e592b")])
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Found potential value using fallback method: 17897589145112545428 wei
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 17897589145112545428 wei (17 UBI)
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 17
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0xeb5ff100ebd4cf6c98081257aea92e937eb2506c8e7694b399566a6ec49d6fdb
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Created new block: 10 (0x0974bed3a7d33efc5e8b7472ad7ae0350ff6757962e8636b0c847a0518d10d69)
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86903808252089491b29b1f0cef5002191901f346208ef3f4ef67eb88a688906bd8b0000080820fffa0865ea5bd6140b5ddd95f490697934d3cfd89e9306c0dc488ef47df41b36e32a1a01bf5a3c22bffd3351f24ab25c81e1d8721ac5b40c7c07b410a1ca37602cc6478")])
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Found pattern for 12 UBI in transaction
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 12
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x52412844430cedfc924fefb16c3fce098298998c57728cb66c2cd79a30e7fadd
+[2025-03-11T23:22:13Z INFO  ubi_chain_rpc::eth_compat] Created new block: 11 (0xa67b0e2d0f2c14f8c2a0d95e89567eaa23ee9c8b02e89fb55a2df6247fac1610)
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount called with params: Array([String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), String("0xc")])
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount: Storing sender address: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86a80808252089491b29b1f0cef5002191901f346208ef3f4ef67eb890238fd42c5cf04000080821000a0f079310132ea12d6a53d351e3861a0cd98725dcdd639d89cc30ed0d13c2f3d91a05b3fc6495baee30b3e218c2aebda01c7927976637dd65ff48bf36cf4e05e2f67")])
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Found value using marker approach: 160156250000000000 wei
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 160156250000000000 wei (1 UBI)
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 1
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x842ac27d7ab646a1f518fb08c4623e1924de1c6666f37d7a306ecdee6dc98e49
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Created new block: 12 (0x1c006f31cb543234aeecab2040812b3f379838912830593b406b7e958be5c6b7)
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86a01808252089491b29b1f0cef5002191901f346208ef3f4ef67eb8903bd913e6c1df4000080821000a06ffe6bd8150a5032aa43da99e411096c8eee9d73cde718832318f71afe816986a07a7819d2e1b6b84be1e04740a55fda4cce48bd49a05964b29502553da3cc48b8")])
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Found value using marker approach: 269531250000000000 wei
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 269531250000000000 wei (1 UBI)
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 1
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x08f3eaa6ceafd492f2cd5f50c31c098619a0b1a10ecf5b821804dd59bce54753
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Created new block: 13 (0x879daad5962b5030f40bb45a54face3688e4b9a3793dab745c360501886e34b7)
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf861808082520894221f75a62af16e13c65c3c697c6491a3f187dda08080821000a02afe8df33935424d14fee15ed5903bca3ab4af3db29b33df8192d970c8327a14a040d4a594c02a3c6a435befaa88c32d211eac5596d511463853456c132392036a")])
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Found value after address: 721332305044673364 wei
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, Value: 721332305044673364 wei (1 UBI)
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, Value: 1
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0xcf58cab2648a2bf23e1d3db2a94ac147bb35f5e17a5b4297417938189aa3c8c0
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Created new block: 14 (0x7c0d21f2b9d2d1a138bb0b804d571bb5406335a48a448b1c907de8540a8077a4)
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86102808252089491b29b1f0cef5002191901f346208ef3f4ef67eb8080820fffa00ddb415efa1914e0b84b477983d5e521f2b5a28e51f328a54c7841fa93cd7305a07bf91acf8fe37ccc9978a2f6e907e1f921b47f68fa534e342211c050854e592b")])
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Found potential value using fallback method: 17897589145112545428 wei
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 17897589145112545428 wei (17 UBI)
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 17
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x835fa7674c793ac808031cf822bd0223cc691e19887bc91a9a2fff43cfecc403
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Created new block: 15 (0xe60afa17d2c0e0a445fcbf56a05e49c74c80135312ce796eedc2bae4404aef80)
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86903808252089491b29b1f0cef5002191901f346208ef3f4ef67eb88a688906bd8b0000080820fffa0865ea5bd6140b5ddd95f490697934d3cfd89e9306c0dc488ef47df41b36e32a1a01bf5a3c22bffd3351f24ab25c81e1d8721ac5b40c7c07b410a1ca37602cc6478")])
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Found pattern for 12 UBI in transaction
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 12
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0xbb6e19d8f40fe89c898a82dcd36ad29d8d4b8de5da189c6ffee1edd694612803
+[2025-03-11T23:22:33Z INFO  ubi_chain_rpc::eth_compat] Created new block: 16 (0x4f15bc4f8d77fc7351e0b182369bca2aacecbbc30e1bef4927910e58fe7d3735)
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount called with params: Array([String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), String("0x11")])
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount: Storing sender address: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86a80808252089491b29b1f0cef5002191901f346208ef3f4ef67eb890238fd42c5cf04000080821000a0f079310132ea12d6a53d351e3861a0cd98725dcdd639d89cc30ed0d13c2f3d91a05b3fc6495baee30b3e218c2aebda01c7927976637dd65ff48bf36cf4e05e2f67")])
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Found value using marker approach: 160156250000000000 wei
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 160156250000000000 wei (1 UBI)
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 1
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x8740896b1ef75b7dfb3e55afc00af85a6836b634796f2fc3bb1a1fdcc6b162ad
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Created new block: 17 (0x92afc179dd47f096453c8378abf8250467ffac710a1c7eb4ca3a6f86f24a68c5)
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86a01808252089491b29b1f0cef5002191901f346208ef3f4ef67eb8903bd913e6c1df4000080821000a06ffe6bd8150a5032aa43da99e411096c8eee9d73cde718832318f71afe816986a07a7819d2e1b6b84be1e04740a55fda4cce48bd49a05964b29502553da3cc48b8")])
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Found value using marker approach: 269531250000000000 wei
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 269531250000000000 wei (1 UBI)
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 1
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x3ccf877b70130833ae2080690521b30a9d800f2845d00f79c940bd5fa8bf0e71
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Created new block: 18 (0xfdb9adf927168c6b3e6e2cda3f242362452c64c58c489d30d83a31d5d06b7439)
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf861808082520894221f75a62af16e13c65c3c697c6491a3f187dda08080821000a02afe8df33935424d14fee15ed5903bca3ab4af3db29b33df8192d970c8327a14a040d4a594c02a3c6a435befaa88c32d211eac5596d511463853456c132392036a")])
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Found value after address: 721332305044673364 wei
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, Value: 721332305044673364 wei (1 UBI)
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, Value: 1
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0xf0bcf686dba8307bc1dea527381b5f806980de99e1adf6cfa951dc30df724c50
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Created new block: 19 (0x595fcb7b80e9bd68d306aa868cd77cd5b8fd93fb741854dfa61cb0490379920d)
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86102808252089491b29b1f0cef5002191901f346208ef3f4ef67eb8080820fffa00ddb415efa1914e0b84b477983d5e521f2b5a28e51f328a54c7841fa93cd7305a07bf91acf8fe37ccc9978a2f6e907e1f921b47f68fa534e342211c050854e592b")])
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Found potential value using fallback method: 17897589145112545428 wei
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 17897589145112545428 wei (17 UBI)
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 17
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0xda315c4563cdcf5313d4f404da0f031f325b10262c24b338f40b5e6aa2d159f9
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Created new block: 20 (0x047ab31c1b589d2bb1d152bdb2e39c6407e6180fdd3ac88294118609d56e3f83)
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86903808252089491b29b1f0cef5002191901f346208ef3f4ef67eb88a688906bd8b0000080820fffa0865ea5bd6140b5ddd95f490697934d3cfd89e9306c0dc488ef47df41b36e32a1a01bf5a3c22bffd3351f24ab25c81e1d8721ac5b40c7c07b410a1ca37602cc6478")])
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Found pattern for 12 UBI in transaction
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 12
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x722bf2f8060ebb0d2d1f43e81410089ee459c3c7a120900534688364b4883b16
+[2025-03-11T23:22:53Z INFO  ubi_chain_rpc::eth_compat] Created new block: 21 (0x3c3d82a5d42c04ede83b0b1a1309dce88c44f5f4adb8080cd0c770633d6afc48)
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount called with params: Array([String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), String("0x16")])
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount: Storing sender address: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86a80808252089491b29b1f0cef5002191901f346208ef3f4ef67eb890238fd42c5cf04000080821000a0f079310132ea12d6a53d351e3861a0cd98725dcdd639d89cc30ed0d13c2f3d91a05b3fc6495baee30b3e218c2aebda01c7927976637dd65ff48bf36cf4e05e2f67")])
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Found value using marker approach: 160156250000000000 wei
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 160156250000000000 wei (1 UBI)
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 1
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x769f0730165e839817d31aa272116e847de603088e288a3a7667c2dfea3d45d7
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Created new block: 22 (0xc1b38023ce4cb4d2a0e5dcf890c2bdcade595736128d1bf6d3c7784b0a32bce1)
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86a01808252089491b29b1f0cef5002191901f346208ef3f4ef67eb8903bd913e6c1df4000080821000a06ffe6bd8150a5032aa43da99e411096c8eee9d73cde718832318f71afe816986a07a7819d2e1b6b84be1e04740a55fda4cce48bd49a05964b29502553da3cc48b8")])
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Found value using marker approach: 269531250000000000 wei
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 269531250000000000 wei (1 UBI)
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 1
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0xab092f368c40c8cf2b07a2944842e416a45e88a2bbd180f9eb9a06436315931d
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Created new block: 23 (0x158e2f057b3c6a3a63de5634ea3e7f52682acc72033c79f91b0d6e9455bcead5)
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf861808082520894221f75a62af16e13c65c3c697c6491a3f187dda08080821000a02afe8df33935424d14fee15ed5903bca3ab4af3db29b33df8192d970c8327a14a040d4a594c02a3c6a435befaa88c32d211eac5596d511463853456c132392036a")])
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Found value after address: 721332305044673364 wei
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, Value: 721332305044673364 wei (1 UBI)
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, Value: 1
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x65225ea48ddb80d17035204366ac3476fcff4c2fd3bd56298680c9833cb191b7
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Created new block: 24 (0xe3ba0601490fb1a626117d17f3ebfb4d7bc7aa8a8895e181ccdf9000399c277c)
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86102808252089491b29b1f0cef5002191901f346208ef3f4ef67eb8080820fffa00ddb415efa1914e0b84b477983d5e521f2b5a28e51f328a54c7841fa93cd7305a07bf91acf8fe37ccc9978a2f6e907e1f921b47f68fa534e342211c050854e592b")])
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Found potential value using fallback method: 17897589145112545428 wei
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 17897589145112545428 wei (17 UBI)
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 17
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x6219ac786d1f43bbb2770df8f139e6a649a960e5b1f4808e777e89fe76defdf7
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Created new block: 25 (0x96f85d2997805e45693384bf3de84ffe9e205c6107e574ab1cbac3f0c6a11398)
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86903808252089491b29b1f0cef5002191901f346208ef3f4ef67eb88a688906bd8b0000080820fffa0865ea5bd6140b5ddd95f490697934d3cfd89e9306c0dc488ef47df41b36e32a1a01bf5a3c22bffd3351f24ab25c81e1d8721ac5b40c7c07b410a1ca37602cc6478")])
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Found pattern for 12 UBI in transaction
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 12
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0x97576f4bd24d48e735ffe1123a849bbc0fffd2902993f6ddeea386897ee05ec0
+[2025-03-11T23:23:13Z INFO  ubi_chain_rpc::eth_compat] Created new block: 26 (0x1f5c730e8acb81fd0da63c2f0580a07b46705f45214dda74ce4bc69ea4a2b967)
+[2025-03-11T23:23:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:23:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:23:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:23:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:23:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:23:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount called with params: Array([String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), String("0x1b")])
+[2025-03-11T23:23:33Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount: Storing sender address: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:26:32Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:26:32Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:26:32Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:26:32Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount called with params: Array([String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), String("0x1b")])
+[2025-03-11T23:26:32Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount: Storing sender address: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:26:32Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:26:32Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:26:35Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:26:35Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:26:35Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:26:35Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:26:35Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:26:38Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:26:38Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:26:38Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:26:38Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:26:38Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:26:41Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:26:41Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:26:41Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:26:41Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:26:41Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:26:44Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:26:44Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:26:44Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:26:44Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:26:44Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:26:47Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:26:47Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:26:47Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:26:47Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:26:47Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:26:50Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:26:50Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:26:50Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:26:50Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:26:50Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:26:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:26:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:26:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:26:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:26:53Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:26:56Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:26:56Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:26:56Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:26:56Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:26:56Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:26:59Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:26:59Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:26:59Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:26:59Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:26:59Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:26:59Z INFO  ubi_chain_rpc::eth_compat] eth_estimateGas called with params: Array([Object {"data": String("0x"), "from": String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), "gasPrice": String("0x0"), "to": String("0x91b29b1f0cef5002191901f346208ef3f4ef67eb"), "value": String("0x0")}])
+[2025-03-11T23:27:03Z INFO  ubi_chain_rpc::eth_compat] eth_estimateGas called with params: Array([Object {"data": String("0x"), "from": String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), "gasPrice": String("0x0"), "to": String("0x91b29b1f0cef5002191901f346208ef3f4ef67eb"), "value": String("0xde0b6b3a7640000")}])
+[2025-03-11T23:27:03Z INFO  ubi_chain_rpc::eth_compat] eth_estimateGas called with params: Array([Object {"data": String("0x"), "from": String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), "gasPrice": String("0x0"), "to": String("0x91b29b1f0cef5002191901f346208ef3f4ef67eb"), "value": String("0xc249fdd327780000")}])
+[2025-03-11T23:27:11Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf86904808252089491b29b1f0cef5002191901f346208ef3f4ef67eb88c249fdd32778000080820fffa0cb8bf5597cbaa6112916990e836f030c99af3902276346352ce6e590234a05daa06dbf0dfacf21097108094e4d8a342950ef19527a43860d67c7261612d685c8fd")])
+[2025-03-11T23:27:11Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:27:11Z INFO  ubi_chain_rpc::eth_compat] Found value using marker approach: 14000000000000000000 wei
+[2025-03-11T23:27:11Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 14000000000000000000 wei (14 UBI)
+[2025-03-11T23:27:11Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:27:11Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, To: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, Value: 14
+[2025-03-11T23:27:11Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0xf4b4dde9c1e6f749a3b5e4c9961fcf9e0a2dec564a8a0b7c7f730d568d076131
+[2025-03-11T23:27:11Z INFO  ubi_chain_rpc::eth_compat] Created new block: 27 (0x3b3bceffe0b6b204e3acbf2a7007a4549457ad81e46e610762b677b19283055c)
+[2025-03-11T23:27:14Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:27:14Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xf4b4dde9c1e6f749a3b5e4c9961fcf9e0a2dec564a8a0b7c7f730d568d076131")])
+[2025-03-11T23:27:14Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:27:14Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:27:14Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:27:14Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:27:17Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:27:17Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:27:17Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:27:17Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:27:17Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:27:20Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:27:20Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:27:20Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:27:20Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:27:20Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:27:23Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:27:23Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:27:23Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:27:23Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:27:23Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:27:26Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:27:26Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:27:26Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:27:26Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:27:26Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:27:26Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount called with params: Array([String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), String("0x1c")])
+[2025-03-11T23:27:26Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount: Storing sender address: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:27:29Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:27:29Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:27:29Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:27:29Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:27:29Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:27:32Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:27:32Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:27:32Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:27:32Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:27:32Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:27:35Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:27:35Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:27:35Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:27:35Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:27:35Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:27:38Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:27:38Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:27:38Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:27:38Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:27:38Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:27:41Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:27:41Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:27:41Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:27:41Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:27:41Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:27:42Z INFO  ubi_chain_rpc::eth_compat] eth_estimateGas called with params: Array([Object {"data": String("0x"), "from": String("0x91b29b1f0cef5002191901f346208ef3f4ef67eb"), "gasPrice": String("0x0"), "to": String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), "value": String("0x0")}])
+[2025-03-11T23:27:45Z INFO  ubi_chain_rpc::eth_compat] eth_estimateGas called with params: Array([Object {"data": String("0x"), "from": String("0x91b29b1f0cef5002191901f346208ef3f4ef67eb"), "gasPrice": String("0x0"), "to": String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), "value": String("0x9985de2f1416a3cf8")}])
+[2025-03-11T23:27:49Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount called with params: Array([String("0x91b29b1f0cef5002191901f346208ef3f4ef67eb"), String("0x1c")])
+[2025-03-11T23:27:49Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount: Storing sender address: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb
+[2025-03-11T23:27:49Z INFO  ubi_chain_rpc::eth_compat] eth_sendRawTransaction called with params: Array([String("0xf869808082520894221f75a62af16e13c65c3c697c6491a3f187dda08909985e5236bc24000080820fffa04e7ba5c6d7b68101181f4664832cadc1a5b32c3a4711a77d25dc94c6f5759c559f51609076658a7267eaf8f9e53dcdd28de6fa8998956478346f199edfeb857a")])
+[2025-03-11T23:27:49Z INFO  ubi_chain_rpc::eth_compat] Found potential recipient address at position 8: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:27:49Z INFO  ubi_chain_rpc::eth_compat] Found value using marker approach: 691406250000000000 wei
+[2025-03-11T23:27:49Z INFO  ubi_chain_rpc::eth_compat] Extracted transaction details - From: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, To: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, Value: 691406250000000000 wei (1 UBI)
+[2025-03-11T23:27:49Z INFO  ubi_chain_rpc::eth_compat] Found recipient address at position 8: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:27:49Z INFO  ubi_chain_rpc::eth_compat] Processing raw transaction - From: 0x91b29b1f0cef5002191901f346208ef3f4ef67eb, To: 0x221f75a62af16e13c65c3c697c6491a3f187dda0, Value: 1
+[2025-03-11T23:27:49Z INFO  ubi_chain_rpc::eth_compat] Raw transaction successful! Hash: 0xe8e501dc52f8765b9140f239bc8aa7fb6c7d538ec1675a13c70bfafb19efee51
+[2025-03-11T23:27:49Z INFO  ubi_chain_rpc::eth_compat] Created new block: 28 (0x2090661f48605c37db5409e22136cb8d6df204ad7308422d933e474471fedb2e)
+[2025-03-11T23:27:52Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:27:52Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xe8e501dc52f8765b9140f239bc8aa7fb6c7d538ec1675a13c70bfafb19efee51")])
+[2025-03-11T23:27:52Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:27:52Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:27:52Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:27:52Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:27:55Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:27:55Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:27:55Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:27:55Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:27:55Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:27:58Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:27:58Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:27:58Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:27:58Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:27:58Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:28:01Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:28:01Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:28:01Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:28:01Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:28:01Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:28:04Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:28:04Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:28:04Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:28:04Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:28:04Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:28:04Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount called with params: Array([String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), String("0x1d")])
+[2025-03-11T23:28:04Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionCount: Storing sender address: 0x221f75a62af16e13c65c3c697c6491a3f187dda0
+[2025-03-11T23:28:07Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:28:07Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:28:07Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:28:07Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:28:07Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:28:10Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:28:10Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:28:10Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:28:10Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:28:10Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:28:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:28:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:28:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:28:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:28:13Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:28:16Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:28:16Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:28:16Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:28:16Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:28:16Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])
+[2025-03-11T23:28:19Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x753969af4754156866a60e21774d9280a6c04840d9ab48ebb4e90ca0dc93c0f4")])
+[2025-03-11T23:28:19Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x3f832ef42d4d96c6afdb9210a68026bf5944279f1a181ad09af4a6533501dea1")])
+[2025-03-11T23:28:19Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0x8a67003d5534b06bb2620841c50dd1850a2265eeac2755271e81bae4a9047372")])
+[2025-03-11T23:28:19Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xc68f10900c0feeadd22de846d8648ddea03a77aa6a9620460b743b2d4ea2733b")])
+[2025-03-11T23:28:19Z INFO  ubi_chain_rpc::eth_compat] eth_getTransactionReceipt called with params: Array([String("0xa534cfbd88298a009652534bbfc33daf8a3831b0a8f2aaaa9acc8e85b84300cc")])

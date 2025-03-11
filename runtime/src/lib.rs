@@ -27,6 +27,9 @@ use std::collections::VecDeque;
 // Add serde imports
 use serde::{Serialize, Deserialize};
 
+// Add log crate
+extern crate log;
+
 // Constants for UBI distribution
 const UBI_TOKENS_PER_HOUR: u64 = 1;
 
@@ -656,40 +659,54 @@ impl Runtime {
         runtime
     }
 
-    /// Retrieves the balance for a given account address
+    /// Gets the balance of an account
     ///
     /// # Arguments
-    /// * `address` - The account address to query
+    /// * `address` - The account address
     ///
     /// # Returns
-    /// The current balance in UBI tokens, or 0 if account doesn't exist
+    /// The account balance, or 0 if the account doesn't exist
     pub fn get_balance(&self, address: &str) -> u64 {
-        // Special case for faucet address - always return a large balance
-        if address == FAUCET_ADDRESS {
-            return FAUCET_MIN_BALANCE;
-        }
+        // Normalize address to lowercase for consistent lookup
+        let address_lower = address.to_lowercase();
         
-        let accounts = self.accounts.lock().unwrap();
+        // Acquire lock on accounts
+        let accounts_guard = match self.accounts.lock() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("Failed to acquire lock on accounts: {:?}", e);
+                return 0;
+            }
+        };
         
-        if let Some(account) = accounts.get(address) {
-            account.balance
-        } else {
-            0
-        }
+        // Get the account balance
+        accounts_guard.get(&address_lower)
+            .map(|account| account.balance)
+            .unwrap_or(0)
     }
 
-    /// Checks if an account has passed human verification
+    /// Checks if an account is verified
     ///
     /// # Arguments
-    /// * `address` - The account address to check
+    /// * `address` - The account address
     ///
     /// # Returns
-    /// true if the account exists and is verified, false otherwise
+    /// true if the account is verified, false otherwise
     pub fn is_account_verified(&self, address: &str) -> bool {
-        self.accounts
-            .lock()
-            .unwrap()
-            .get(address)
+        // Normalize address to lowercase for consistent lookup
+        let address_lower = address.to_lowercase();
+        
+        // Acquire lock on accounts
+        let accounts_guard = match self.accounts.lock() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("Failed to acquire lock on accounts: {:?}", e);
+                return false;
+            }
+        };
+        
+        // Check if the account is verified
+        accounts_guard.get(&address_lower)
             .map(|account| account.verified)
             .unwrap_or(false)
     }
@@ -697,47 +714,47 @@ impl Runtime {
     /// Creates a new account with the given address
     ///
     /// # Arguments
-    /// * `address` - The address for the new account (must be in Ethereum format: 0x + 40 hex chars)
+    /// * `address` - The account address
     ///
     /// # Returns
-    /// Result with the created account or an error if the account already exists or address is invalid
-    ///
-    /// # Example
-    /// ```
-    /// let result = runtime.create_account("0x1234567890abcdef1234567890abcdef12345678");
-    /// match result {
-    ///     Ok(account) => println!("Created account: {}", account.address),
-    ///     Err(e) => println!("Error: {}", e),
-    /// }
-    /// ```
-    pub fn create_account(&self, address: &str) -> Result<Account, AccountError> {
-        // Validate the address format (should be 0x + 40 hex characters for Ethereum compatibility)
-        if !is_valid_eth_address(address) {
-            return Err(AccountError::InvalidAddress);
+    /// Result indicating success or an error
+    pub fn create_account(&self, address: &str) -> Result<(), AccountError> {
+        // Normalize address to lowercase for consistent lookup
+        let address_lower = address.to_lowercase();
+        
+        // Validate the address format
+        if !address_lower.starts_with("0x") || address_lower.len() != 42 {
+            return Err(AccountError::Other(format!("Invalid address format: {}", address)));
         }
         
-        let mut accounts = self.accounts.lock().unwrap();
-        
-        // Check if account already exists
-        if accounts.contains_key(address) {
-            return Err(AccountError::AlreadyExists);
+        // Check if the address contains only valid hex characters
+        if !address_lower[2..].chars().all(|c| c.is_ascii_hexdigit()) {
+            return Err(AccountError::Other(format!("Invalid address format: {}", address)));
         }
         
-        // Create new account with 0 UBI tokens initial balance and AUTOMATICALLY VERIFIED status
-        // Also set the last_ubi_claim to the current time
-        let account = Account {
-            address: address.to_string(),
-            balance: 0, // Initialize with 0 UBI tokens
-            verified: true, // Auto-verify all accounts as a placeholder
-            last_ubi_claim: SystemTime::now(),
+        // Acquire lock on accounts
+        let mut accounts_guard = match self.accounts.lock() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("Failed to acquire lock on accounts: {:?}", e);
+                return Err(AccountError::Other(format!("Failed to acquire lock on accounts: {:?}", e)));
+            }
         };
         
-        // Store the account
-        accounts.insert(address.to_string(), account.clone());
+        // Check if account already exists
+        if accounts_guard.contains_key(&address_lower) {
+            return Err(AccountError::Other(format!("Account already exists: {}", address)));
+        }
         
-        // No need to update total supply since we're not adding any tokens
+        // Create the account
+        accounts_guard.insert(address_lower.clone(), Account {
+            address: address_lower,
+            balance: 0,
+            verified: false,
+            last_ubi_claim: SystemTime::now(),
+        });
         
-        Ok(account)
+        Ok(())
     }
     
     /// Verifies an account as a human
@@ -955,18 +972,29 @@ impl Runtime {
     /// # Returns
     /// Result indicating success or an error
     pub fn transfer_with_fee(&self, from_address: &str, to_address: &str, amount: u64) -> Result<(), AccountError> {
-        // Special case for faucet address - always allow transfers from the faucet
-        let is_faucet_transfer = from_address == FAUCET_ADDRESS;
+        // Normalize addresses to lowercase for consistent lookup
+        let from_lower = from_address.to_lowercase();
+        let to_lower = to_address.to_lowercase();
         
-        let mut accounts = self.accounts.lock().unwrap();
+        // Special case for faucet address - always allow transfers from the faucet
+        let is_faucet_transfer = from_lower == FAUCET_ADDRESS.to_lowercase();
+        
+        // Acquire lock on accounts
+        let mut accounts_guard = match self.accounts.lock() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("Failed to acquire lock on accounts: {:?}", e);
+                return Err(AccountError::Other(format!("Failed to acquire lock on accounts: {:?}", e)));
+            }
+        };
         
         // Check if sender account exists
-        if !accounts.contains_key(from_address) && !is_faucet_transfer {
+        if !accounts_guard.contains_key(&from_lower) && !is_faucet_transfer {
             return Err(AccountError::Other(format!("Sender account {} does not exist", from_address)));
         }
         
         // Check if recipient account exists
-        if !accounts.contains_key(to_address) {
+        if !accounts_guard.contains_key(&to_lower) {
             return Err(AccountError::Other(format!("Recipient account {} does not exist", to_address)));
         }
         
@@ -976,7 +1004,7 @@ impl Runtime {
         
         // Check if sender has sufficient balance (skip for faucet)
         if !is_faucet_transfer {
-            let sender = accounts.get(from_address).unwrap();
+            let sender = accounts_guard.get(&from_lower).unwrap();
             if sender.balance < total_deduction {
                 return Err(AccountError::Other(format!(
                     "Insufficient balance: {} < {}", sender.balance, total_deduction
@@ -984,17 +1012,30 @@ impl Runtime {
             }
             
             // Deduct from sender
-            let sender = accounts.get_mut(from_address).unwrap();
+            let sender = accounts_guard.get_mut(&from_lower).unwrap();
             sender.balance -= total_deduction;
         }
         
         // Add to recipient
-        let recipient = accounts.get_mut(to_address).unwrap();
+        let recipient = accounts_guard.get_mut(&to_lower).unwrap();
         recipient.balance += amount;
         
+        // Drop the accounts lock before acquiring the fee pool lock
+        // This helps avoid potential deadlocks
+        drop(accounts_guard);
+        
         // Add fee to pool
-        let mut fee_pool = self.fee_pool.lock().unwrap();
-        *fee_pool += fee;
+        let mut fee_pool_guard = match self.fee_pool.lock() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("Failed to acquire lock on fee pool: {:?}", e);
+                // The transfer was successful, so we'll just log the error and continue
+                log::warn!("Fee was not added to the pool, but transfer was successful");
+                return Ok(());
+            }
+        };
+        
+        *fee_pool_guard += fee;
         
         Ok(())
     }
@@ -1261,49 +1302,51 @@ impl Runtime {
     }
 
     /// Credits tokens to an account
-    /// 
-    /// This function:
-    /// 1. Checks if the account exists, creates it if not
-    /// 2. Adds the specified amount to the account's balance
-    /// 
+    ///
     /// # Arguments
-    /// * `address` - The account address to credit
-    /// * `amount` - The amount of tokens to credit
-    /// 
+    /// * `address` - The account address
+    /// * `amount` - The amount to credit
+    ///
     /// # Returns
-    /// The new balance of the account, or an error if the account doesn't exist
+    /// Result containing the new balance or an error
     pub fn credit_balance(&self, address: &str, amount: u64) -> Result<u64, AccountError> {
-        let mut accounts = self.accounts.lock().unwrap();
+        // Normalize address to lowercase for consistent lookup
+        let address_lower = address.to_lowercase();
         
-        // Check if the account exists
-        if let Some(account) = accounts.get_mut(address) {
-            // Credit the account
-            account.balance += amount;
-            
-            // Update total supply
-            let mut total_supply = self.total_supply.lock().unwrap();
-            *total_supply += amount;
-            
-            Ok(account.balance)
-        } else {
-            // Create the account if it doesn't exist
-            match self.create_account(address) {
-                Ok(mut account) => {
-                    // Credit the account
-                    account.balance += amount;
-                    
-                    // Update the account in the map
-                    accounts.insert(address.to_string(), account.clone());
-                    
-                    // Update total supply
-                    let mut total_supply = self.total_supply.lock().unwrap();
-                    *total_supply += amount;
-                    
-                    Ok(account.balance)
-                },
-                Err(e) => Err(e),
+        // Acquire lock on accounts
+        let mut accounts_guard = match self.accounts.lock() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("Failed to acquire lock on accounts: {:?}", e);
+                return Err(AccountError::Other(format!("Failed to acquire lock on accounts: {:?}", e)));
+            }
+        };
+        
+        // Check if account exists
+        if !accounts_guard.contains_key(&address_lower) {
+            return Err(AccountError::Other(format!("Account does not exist: {}", address)));
+        }
+        
+        // Credit the account
+        let account = accounts_guard.get_mut(&address_lower).unwrap();
+        account.balance += amount;
+        
+        // Update total supply
+        drop(accounts_guard); // Drop the accounts lock before acquiring the total supply lock
+        
+        match self.total_supply.lock() {
+            Ok(mut total_supply) => {
+                *total_supply += amount;
+            },
+            Err(e) => {
+                log::error!("Failed to acquire lock on total supply: {:?}", e);
+                // The credit was successful, so we'll just log the error and continue
+                log::warn!("Total supply was not updated, but credit was successful");
             }
         }
+        
+        // Return the new balance
+        Ok(self.get_balance(&address_lower))
     }
 
     /// Sets the block producer reference

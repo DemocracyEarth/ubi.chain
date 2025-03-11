@@ -11,7 +11,7 @@
 
 use runtime::{Runtime, AccountError, Transaction};
 use serde::{Deserialize, Serialize};
-use log::{info, warn, error};
+use log::{info, error};
 
 // Add Ethereum compatibility module
 pub mod eth_compat;
@@ -22,12 +22,9 @@ pub mod eth_pubsub;
 // extern crate ubi_chain_node as node;
 // use node::Transaction;
 
-use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
-use std::collections::HashMap;
+use std::sync::Arc;
 use std::net::SocketAddr;
 use std::str::FromStr;
-use std::fmt;
 use jsonrpc_core::{IoHandler, Error as JsonRpcError};
 use jsonrpc_http_server::Server as HttpServer;
 use jsonrpc_ws_server::{Server as WsServer, ServerBuilder as WsServerBuilder};
@@ -241,12 +238,9 @@ impl RpcHandler {
     pub fn create_account(&self, address: String) -> CreateAccountResponse {
         let normalized_address = address.to_lowercase();
         match self.runtime.create_account(&normalized_address) {
-            Ok(account) => {
-                let account_info = AccountInfo {
-                    address: account.address,
-                    balance: account.balance,
-                    verified: account.verified,
-                };
+            Ok(()) => {
+                // Account created successfully, now get the account info
+                let account_info = self.get_account_info(normalized_address.clone());
                 
                 CreateAccountResponse {
                     success: true,
@@ -254,17 +248,11 @@ impl RpcHandler {
                     error: None,
                 }
             },
-            Err(err) => {
-                let error_message = match err {
-                    AccountError::AlreadyExists => "Account already exists".to_string(),
-                    AccountError::InvalidAddress => "Invalid address format".to_string(),
-                    AccountError::Other(msg) => msg,
-                };
-                
+            Err(e) => {
                 CreateAccountResponse {
                     success: false,
                     account: None,
-                    error: Some(error_message),
+                    error: Some(format!("{}", e)),
                 }
             }
         }
