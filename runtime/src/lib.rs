@@ -723,11 +723,11 @@ impl Runtime {
             return Err(AccountError::AlreadyExists);
         }
         
-        // Create new account with 10 UBI tokens initial balance and AUTOMATICALLY VERIFIED status
+        // Create new account with 0 UBI tokens initial balance and AUTOMATICALLY VERIFIED status
         // Also set the last_ubi_claim to the current time
         let account = Account {
             address: address.to_string(),
-            balance: 10, // Fund with 10 UBI tokens initially
+            balance: 0, // Initialize with 0 UBI tokens
             verified: true, // Auto-verify all accounts as a placeholder
             last_ubi_claim: SystemTime::now(),
         };
@@ -735,8 +735,7 @@ impl Runtime {
         // Store the account
         accounts.insert(address.to_string(), account.clone());
         
-        // Update total supply to account for the new tokens
-        self.update_total_supply(10, true);
+        // No need to update total supply since we're not adding any tokens
         
         Ok(account)
     }

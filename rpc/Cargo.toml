@@ -16,7 +16,17 @@ primitive-types = "0.12.1"
 jsonrpc-core = "18.0.0"
 jsonrpc-http-server = "18.0.0"
 jsonrpc-core-client = "18.0.0" 
+# WebSocket support
+jsonrpc-pubsub = "18.0.0"
+jsonrpc-ws-server = "18.0.0"
+futures = "0.3"
 # Random number generation for address creation
 rand = "0.8.5" 
 log = "0.4"
 once_cell = "1.8.0"
+parking_lot = "0.12.1"
+env_logger = "0.10.0"
+
+[[bin]]
+name = "eth_rpc_server"
+path = "src/bin/eth_rpc_server.rs"

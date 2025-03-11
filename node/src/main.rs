@@ -246,11 +246,6 @@ impl BlockProducer {
             match self.produce_block().await {
                 Ok(block) => {
                     info!("Produced block #{} with {} transactions", block.number, block.transactions.len());
-                    
-                    // Send the block to subscribers
-                    if let Err(e) = self.block_sender.send(block.clone()).await {
-                        error!("Failed to send block: {}", e);
-                    }
                 },
                 Err(e) => {
                     error!("Failed to produce block: {}", e);
@@ -330,13 +325,11 @@ impl BlockProducer {
             producer: self.node_id.clone(),
         };
         
-        info!("Produced block #{} with {} transactions", block.number, block.transactions.len());
-        
         // Send block to subscribers
         if let Err(e) = self.block_sender.send(block.clone()).await {
             error!("Failed to broadcast block: {}", e);
         }
-        
+
         Ok(block)
     }
     

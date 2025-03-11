@@ -15,10 +15,20 @@ use log::{info, error};
 
 // Add Ethereum compatibility module
 pub mod eth_compat;
+// Add Ethereum PubSub module
+pub mod eth_pubsub;
 
 // Remove the external crate reference
 // extern crate ubi_chain_node as node;
 // use node::Transaction;
+
+use std::sync::Arc;
+use std::net::SocketAddr;
+use std::str::FromStr;
+use jsonrpc_core::{Error, IoHandler};
+use jsonrpc_http_server::{Server as HttpServer, ServerBuilder as HttpServerBuilder};
+use jsonrpc_ws_server::{Server as WsServer, ServerBuilder as WsServerBuilder};
+use jsonrpc_pubsub::PubSubHandler;
 
 /// Account information structure returned by RPC queries
 ///
@@ -75,6 +85,9 @@ pub struct FaucetResponse {
     /// New balance after faucet distribution
     pub new_balance: Option<u64>,
     
+    /// Transaction hash (if a transaction was created)
+    pub transaction_hash: Option<String>,
+    
     /// Error message if unsuccessful
     pub error: Option<String>,
 }
@@ -90,6 +103,14 @@ pub struct RpcHandler {
     
     /// Node address (used as the faucet address)
     pub node_address: Option<String>,
+}
+
+/// Combined server structure holding both HTTP and WebSocket servers
+pub struct CombinedServer {
+    /// HTTP server instance
+    pub http_server: HttpServer,
+    /// WebSocket server instance
+    pub ws_server: WsServer,
 }
 
 impl RpcHandler {
@@ -117,7 +138,30 @@ impl RpcHandler {
         self.node_address.clone()
     }
     
-    /// Starts an Ethereum-compatible JSON-RPC server
+    /// Starts both HTTP and WebSocket Ethereum-compatible JSON-RPC servers
+    ///
+    /// # Arguments
+    /// * `http_addr` - The address to bind the HTTP server to
+    /// * `ws_addr` - The address to bind the WebSocket server to
+    /// * `chain_id` - Chain ID for EIP-155 compatibility
+    ///
+    /// # Returns
+    /// A result containing the combined server instance or an error
+    pub fn start_eth_rpc_servers(&self, http_addr: &str, ws_addr: &str, chain_id: u64) -> Result<CombinedServer, String> {
+        // Start HTTP server
+        let http_server = self.start_eth_rpc_server(http_addr, chain_id)?;
+        
+        // Start WebSocket server
+        let ws_server = self.start_eth_ws_server(ws_addr, chain_id)
+            .map_err(|e| format!("Failed to start WebSocket server: {}", e))?;
+        
+        Ok(CombinedServer {
+            http_server,
+            ws_server,
+        })
+    }
+
+    /// Starts an Ethereum-compatible JSON-RPC HTTP server
     ///
     /// # Arguments
     /// * `addr` - The address to bind the server to (e.g., "127.0.0.1:8545")
@@ -135,11 +179,11 @@ impl RpcHandler {
     /// let _eth_server = rpc_handler.start_eth_rpc_server("127.0.0.1:8545", 2030)?;
     /// ```
     /// Note the use of `_eth_server` to store the server instance.
-    pub fn start_eth_rpc_server(&self, addr: &str, chain_id: u64) -> Result<jsonrpc_http_server::Server, String> {
+    pub fn start_eth_rpc_server(&self, addr: &str, chain_id: u64) -> Result<HttpServer, String> {
         let eth_handler = eth_compat::EthRpcHandler::new(self.clone(), chain_id);
         
         // Start the server and return it to be managed by the caller
-        eth_handler.start_server(addr).map_err(|e| format!("Failed to start RPC server: {:?}", e))
+        eth_handler.start_server(addr).map_err(|e| format!("Failed to start HTTP RPC server: {:?}", e))
     }
 
     /// Retrieves account information for a given address
@@ -247,6 +291,7 @@ impl RpcHandler {
                 success: false,
                 amount: None,
                 new_balance: None,
+                transaction_hash: None,
                 error: Some("Invalid Ethereum address".to_string()),
             };
         }
@@ -265,6 +310,7 @@ impl RpcHandler {
                 success: false,
                 amount: None,
                 new_balance: None,
+                transaction_hash: None,
                 error: Some(format!("Insufficient balance: {} < {}", faucet_balance, tokens_to_send + 1)),
             };
         }
@@ -282,6 +328,7 @@ impl RpcHandler {
                             success: false,
                             amount: None,
                             new_balance: None,
+                            transaction_hash: None,
                             error: Some(format!("Failed to create recipient account: {:?}", e)),
                         };
                     }
@@ -289,14 +336,24 @@ impl RpcHandler {
             }
         }
 
+        // Create a transaction and add it to the transaction pool
+        // Note: We no longer directly transfer tokens here, as the transaction will be processed by the block producer
         match self.create_faucet_transaction(&faucet_address, &normalized_address, tokens_to_send).await {
             Ok(tx_hash) => {
                 info!("Transaction successfully created with hash: {}", tx_hash);
-                let new_balance = self.runtime.get_balance(&normalized_address);
+                
+                // Get the current balance (before the transaction is processed)
+                let current_balance = self.runtime.get_balance(&normalized_address);
+                
+                // The transaction will be processed in the next block
+                info!("Faucet transaction created: {} tokens will be sent to {} in the next block", 
+                      tokens_to_send, normalized_address);
+                
                 FaucetResponse {
                     success: true,
                     amount: Some(tokens_to_send),
-                    new_balance: Some(new_balance),
+                    new_balance: Some(current_balance), // Return current balance before transaction is processed
+                    transaction_hash: Some(tx_hash),
                     error: None,
                 }
             },
@@ -305,6 +362,7 @@ impl RpcHandler {
                     success: false,
                     amount: None,
                     new_balance: None,
+                    transaction_hash: None,
                     error: Some(format!("Failed to create transaction: {}", e)),
                 }
             }
@@ -364,6 +422,106 @@ impl RpcHandler {
             error!("Block producer not available");
             Err("Block producer not available".to_string())
         }
+    }
+
+    /// Starts the Ethereum-compatible WebSocket JSON-RPC server with subscription support
+    ///
+    /// # Arguments
+    /// * `addr` - The address to bind the server to
+    /// * `chain_id` - Chain ID for EIP-155 compatibility
+    ///
+    /// # Returns
+    /// A result containing the server instance or an error
+    pub fn start_eth_ws_server(&self, addr: &str, chain_id: u64) -> Result<WsServer, String> {
+        let addr = SocketAddr::from_str(addr)
+            .map_err(|_| "Invalid WebSocket address".to_string())?;
+        
+        // Create a PubSub handler for WebSocket
+        let mut io = PubSubHandler::new(jsonrpc_core::MetaIoHandler::default());
+        
+        // Create the PubSub handler with subscription manager
+        let subscription_manager = Arc::new(eth_pubsub::SubscriptionManager::new(self.clone()));
+        let pubsub_handler = Arc::new(eth_pubsub::EthPubSubHandler::new(self.clone(), chain_id));
+        
+        // Create the Ethereum handler with subscription support
+        let eth_handler = Arc::new(eth_compat::EthRpcHandler::new_with_subscriptions(
+            self.clone(), 
+            chain_id,
+            subscription_manager.clone()
+        ));
+        
+        // Set up the WebSocket sink
+        let sink = Arc::new(io.sender());
+        eth_compat::EthRpcHandler::set_ws_sink(sink);
+        
+        // Add standard methods
+        io.add_method("eth_getBalance", {
+            let handler = eth_handler.clone();
+            move |params| handler.eth_get_balance(params)
+        });
+        
+        io.add_method("eth_sendTransaction", {
+            let handler = eth_handler.clone();
+            move |params| handler.eth_send_transaction(params)
+        });
+        
+        io.add_method("eth_getTransactionCount", {
+            let handler = eth_handler.clone();
+            move |params| handler.eth_get_transaction_count(params)
+        });
+        
+        io.add_method("eth_chainId", {
+            let handler = eth_handler.clone();
+            move |params| handler.eth_chain_id(params)
+        });
+        
+        io.add_method("eth_blockNumber", {
+            let handler = eth_handler.clone();
+            move |params| handler.eth_block_number(params)
+        });
+        
+        io.add_method("eth_getBlockByNumber", {
+            let handler = eth_handler.clone();
+            move |params| handler.eth_get_block_by_number(params)
+        });
+        
+        io.add_method("eth_getBlockByHash", {
+            let handler = eth_handler.clone();
+            move |params| handler.eth_get_block_by_hash(params)
+        });
+        
+        io.add_method("eth_accounts", {
+            let handler = eth_handler.clone();
+            move |params| handler.eth_accounts(params)
+        });
+        
+        io.add_method("eth_sendRawTransaction", {
+            let handler = eth_handler.clone();
+            move |params| handler.eth_send_raw_transaction(params)
+        });
+        
+        // Add PubSub-specific methods
+        let pubsub_clone = pubsub_handler.clone();
+        io.add_subscription(
+            "eth_subscribe",
+            ("eth_subscribe", move |params, meta, subscriber| {
+                pubsub_clone.eth_subscribe(params, meta, subscriber);
+            }),
+            ("eth_unsubscribe", move |params, meta| {
+                pubsub_handler.eth_unsubscribe(params, meta)
+            }),
+        );
+        
+        // Start the WebSocket server
+        let server = WsServerBuilder::new(io)
+            .max_connections(100)
+            .cors(jsonrpc_ws_server::DomainsValidation::AllowOnly(vec!["*".into()]))
+            .start(&addr)
+            .map_err(|e| format!("Failed to start WebSocket server: {:?}", e))?;
+            
+        info!("WebSocket server started on {}", addr);
+        
+        Ok(server)
     }
 
     // TODO: Implement additional RPC methods:
@@ -460,6 +618,7 @@ mod tests {
         assert!(response.success);
         assert_eq!(response.amount, Some(50));
         assert!(response.new_balance.is_some());
+        assert!(response.transaction_hash.is_some());
         assert!(response.error.is_none());
         
         // The account should now have 50 tokens (plus the 10 initial tokens)
@@ -472,6 +631,7 @@ mod tests {
         assert!(response2.success);
         assert_eq!(response2.amount, Some(30));
         assert_eq!(response2.new_balance, Some(90)); // 60 + 30 = 90
+        assert!(response2.transaction_hash.is_some());
         assert!(response2.error.is_none());
         
         // Test requesting more than the maximum allowed
