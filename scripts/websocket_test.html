@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ethereum WebSocket Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .card {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .log {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            flex-grow: 1;
+        }
+    </style>
+</head>
+<body>
+    <h1>Ethereum WebSocket Test</h1>
+    
+    <div class="container">
+        <div class="card">
+            <h2>Connection</h2>
+            <div class="controls">
+                <input type="text" id="wsUrl" value="ws://localhost:8546" placeholder="WebSocket URL">
+                <button id="connectBtn">Connect</button>
+                <button id="disconnectBtn" disabled>Disconnect</button>
+            </div>
+            <div id="connectionStatus">Disconnected</div>
+        </div>
+        
+        <div class="card">
+            <h2>Subscriptions</h2>
+            <div class="controls">
+                <button id="subscribeNewHeadsBtn" disabled>Subscribe to New Blocks</button>
+                <button id="subscribeNewPendingTxBtn" disabled>Subscribe to Pending Transactions</button>
+                <button id="unsubscribeBtn" disabled>Unsubscribe All</button>
+            </div>
+            <div id="subscriptionStatus">No active subscriptions</div>
+        </div>
+        
+        <div class="card">
+            <h2>Send Transaction (HTTP)</h2>
+            <div class="controls">
+                <input type="text" id="fromAddress" placeholder="From Address (0x...)">
+                <input type="text" id="toAddress" placeholder="To Address (0x...)">
+                <input type="text" id="value" placeholder="Value (in wei)">
+                <button id="sendTxBtn">Send Transaction</button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Log</h2>
+            <div class="log" id="log"></div>
+        </div>
+    </div>
+    
+    <script>
+        // DOM Elements
+        const wsUrlInput = document.getElementById('wsUrl');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const subscribeNewHeadsBtn = document.getElementById('subscribeNewHeadsBtn');
+        const subscribeNewPendingTxBtn = document.getElementById('subscribeNewPendingTxBtn');
+        const unsubscribeBtn = document.getElementById('unsubscribeBtn');
+        const subscriptionStatus = document.getElementById('subscriptionStatus');
+        const fromAddressInput = document.getElementById('fromAddress');
+        const toAddressInput = document.getElementById('toAddress');
+        const valueInput = document.getElementById('value');
+        const sendTxBtn = document.getElementById('sendTxBtn');
+        const logElement = document.getElementById('log');
+        
+        // State
+        let ws = null;
+        let subscriptions = [];
+        let requestId = 1;
+        
+        // Helper functions
+        function log(message, isError = false) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.style.color = isError ? 'red' : 'black';
+            
+            // Format JSON if the message is a JSON string
+            if (typeof message === 'object') {
+                message = JSON.stringify(message, null, 2);
+            }
+            
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logElement.appendChild(entry);
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function updateConnectionStatus(connected) {
+            connectionStatus.textContent = connected ? 'Connected' : 'Disconnected';
+            connectionStatus.style.color = connected ? 'green' : 'red';
+            
+            connectBtn.disabled = connected;
+            disconnectBtn.disabled = !connected;
+            subscribeNewHeadsBtn.disabled = !connected;
+            subscribeNewPendingTxBtn.disabled = !connected;
+        }
+        
+        function updateSubscriptionStatus() {
+            if (subscriptions.length === 0) {
+                subscriptionStatus.textContent = 'No active subscriptions';
+                unsubscribeBtn.disabled = true;
+            } else {
+                subscriptionStatus.textContent = `Active subscriptions: ${subscriptions.length}`;
+                unsubscribeBtn.disabled = false;
+            }
+        }
+        
+        // WebSocket connection
+        connectBtn.addEventListener('click', () => {
+            const url = wsUrlInput.value.trim();
+            if (!url) {
+                log('Please enter a WebSocket URL', true);
+                return;
+            }
+            
+            try {
+                ws = new WebSocket(url);
+                
+                ws.onopen = () => {
+                    log('Connected to WebSocket server');
+                    updateConnectionStatus(true);
+                };
+                
+                ws.onclose = () => {
+                    log('Disconnected from WebSocket server');
+                    updateConnectionStatus(false);
+                    subscriptions = [];
+                    updateSubscriptionStatus();
+                };
+                
+                ws.onerror = (error) => {
+                    log(`WebSocket error: ${error.message}`, true);
+                };
+                
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        log(data);
+                        
+                        // Handle subscription responses
+                        if (data.id && data.result) {
+                            const subscription = subscriptions.find(s => s.id === data.id);
+                            if (subscription) {
+                                subscription.subscriptionId = data.result;
+                                log(`Subscription confirmed: ${data.result}`);
+                                updateSubscriptionStatus();
+                            }
+                        }
+                    } catch (e) {
+                        log(`Error parsing message: ${e.message}`, true);
+                    }
+                };
+            } catch (e) {
+                log(`Error connecting to WebSocket: ${e.message}`, true);
+            }
+        });
+        
+        disconnectBtn.addEventListener('click', () => {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        });
+        
+        // Subscriptions
+        subscribeNewHeadsBtn.addEventListener('click', () => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('WebSocket not connected', true);
+                return;
+            }
+            
+            const id = requestId++;
+            const request = {
+                jsonrpc: '2.0',
+                id,
+                method: 'eth_subscribe',
+                params: ['newHeads']
+            };
+            
+            subscriptions.push({ id, type: 'newHeads' });
+            ws.send(JSON.stringify(request));
+            log(`Subscribing to new blocks (ID: ${id})`);
+            updateSubscriptionStatus();
+        });
+        
+        subscribeNewPendingTxBtn.addEventListener('click', () => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('WebSocket not connected', true);
+                return;
+            }
+            
+            const id = requestId++;
+            const request = {
+                jsonrpc: '2.0',
+                id,
+                method: 'eth_subscribe',
+                params: ['newPendingTransactions']
+            };
+            
+            subscriptions.push({ id, type: 'newPendingTransactions' });
+            ws.send(JSON.stringify(request));
+            log(`Subscribing to pending transactions (ID: ${id})`);
+            updateSubscriptionStatus();
+        });
+        
+        unsubscribeBtn.addEventListener('click', () => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('WebSocket not connected', true);
+                return;
+            }
+            
+            subscriptions.forEach(subscription => {
+                if (subscription.subscriptionId) {
+                    const request = {
+                        jsonrpc: '2.0',
+                        id: requestId++,
+                        method: 'eth_unsubscribe',
+                        params: [subscription.subscriptionId]
+                    };
+                    
+                    ws.send(JSON.stringify(request));
+                    log(`Unsubscribing from ${subscription.type} (ID: ${subscription.subscriptionId})`);
+                }
+            });
+            
+            subscriptions = [];
+            updateSubscriptionStatus();
+        });
+        
+        // Send transaction via HTTP
+        sendTxBtn.addEventListener('click', async () => {
+            const from = fromAddressInput.value.trim();
+            const to = toAddressInput.value.trim();
+            const value = valueInput.value.trim();
+            
+            if (!from || !to || !value) {
+                log('Please fill in all transaction fields', true);
+                return;
+            }
+            
+            const request = {
+                jsonrpc: '2.0',
+                id: requestId++,
+                method: 'eth_sendTransaction',
+                params: [{
+                    from,
+                    to,
+                    value: `0x${parseInt(value).toString(16)}`
+                }]
+            };
+            
+            try {
+                log(`Sending transaction: ${from} -> ${to} (${value} wei)`);
+                
+                const response = await fetch('http://localhost:8545', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(request)
+                });
+                
+                const data = await response.json();
+                log(data);
+                
+                if (data.error) {
+                    log(`Transaction error: ${data.error.message}`, true);
+                } else if (data.result) {
+                    log(`Transaction sent: ${data.result}`);
+                }
+            } catch (e) {
+                log(`Error sending transaction: ${e.message}`, true);
+            }
+        });
+        
+        // Initialize
+        updateConnectionStatus(false);
+        updateSubscriptionStatus();
+        log('WebSocket test page loaded');
+    </script>
+</body>
+</html> 

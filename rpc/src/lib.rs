@@ -11,7 +11,7 @@
 
 use runtime::{Runtime, AccountError, Transaction};
 use serde::{Deserialize, Serialize};
-use log::{info, error};
+use log::info;
 
 // Add Ethereum compatibility module
 pub mod eth_compat;
@@ -25,10 +25,11 @@ pub mod eth_pubsub;
 use std::sync::Arc;
 use std::net::SocketAddr;
 use std::str::FromStr;
-use jsonrpc_core::{Error, IoHandler};
-use jsonrpc_http_server::{Server as HttpServer, ServerBuilder as HttpServerBuilder};
+use jsonrpc_core::{IoHandler, Error as JsonRpcError};
+use jsonrpc_http_server::Server as HttpServer;
 use jsonrpc_ws_server::{Server as WsServer, ServerBuilder as WsServerBuilder};
-use jsonrpc_pubsub::PubSubHandler;
+use rand::Rng;
+use hex;
 
 /// Account information structure returned by RPC queries
 ///
@@ -147,14 +148,10 @@ impl RpcHandler {
     ///
     /// # Returns
     /// A result containing the combined server instance or an error
-    pub fn start_eth_rpc_servers(&self, http_addr: &str, ws_addr: &str, chain_id: u64) -> Result<CombinedServer, String> {
-        // Start HTTP server
+    pub async fn start_combined_server(&self, http_addr: &str, ws_addr: &str, chain_id: u64) -> std::result::Result<CombinedServer, JsonRpcError> {
         let http_server = self.start_eth_rpc_server(http_addr, chain_id)?;
-        
-        // Start WebSocket server
-        let ws_server = self.start_eth_ws_server(ws_addr, chain_id)
-            .map_err(|e| format!("Failed to start WebSocket server: {}", e))?;
-        
+        let ws_server = self.start_eth_ws_server(ws_addr, chain_id).await?;
+
         Ok(CombinedServer {
             http_server,
             ws_server,
@@ -164,11 +161,11 @@ impl RpcHandler {
     /// Starts an Ethereum-compatible JSON-RPC HTTP server
     ///
     /// # Arguments
-    /// * `addr` - The address to bind the server to (e.g., "127.0.0.1:8545")
-    /// * `chain_id` - The chain ID to use for Ethereum compatibility
+    /// * `addr` - The address to bind the server to
+    /// * `chain_id` - Chain ID for EIP-155 compatibility
     ///
     /// # Returns
-    /// Result containing the server instance or an error
+    /// A result containing the server instance or an error
     ///
     /// # Important
     /// The returned server instance must be stored in a variable that lives for the duration
@@ -179,11 +176,11 @@ impl RpcHandler {
     /// let _eth_server = rpc_handler.start_eth_rpc_server("127.0.0.1:8545", 2030)?;
     /// ```
     /// Note the use of `_eth_server` to store the server instance.
-    pub fn start_eth_rpc_server(&self, addr: &str, chain_id: u64) -> Result<HttpServer, String> {
+    pub fn start_eth_rpc_server(&self, addr: &str, chain_id: u64) -> std::result::Result<HttpServer, JsonRpcError> {
         let eth_handler = eth_compat::EthRpcHandler::new(self.clone(), chain_id);
         
         // Start the server and return it to be managed by the caller
-        eth_handler.start_server(addr).map_err(|e| format!("Failed to start HTTP RPC server: {:?}", e))
+        eth_handler.start_server(addr).map_err(|_| JsonRpcError::internal_error())
     }
 
     /// Retrieves account information for a given address
@@ -369,24 +366,21 @@ impl RpcHandler {
         }
     }
 
-    /// Creates a transaction for the faucet request
-    /// 
-    /// This is used by the Ethereum-compatible RPC server to ensure
-    /// faucet transactions are included in blocks.
+    /// Creates a new faucet transaction
     ///
     /// # Arguments
-    /// * `from_address` - The sender's address
-    /// * `to_address` - The recipient's address
-    /// * `amount` - The amount to transfer
+    /// * `from_address` - The address to send from
+    /// * `to_address` - The address to send to
+    /// * `amount` - The amount to send
     ///
     /// # Returns
-    /// A JSON-RPC response with the transaction hash
-    pub async fn create_faucet_transaction(&self, from_address: &str, to_address: &str, amount: u64) -> Result<String, String> {
+    /// A result containing the transaction hash or an error
+    pub async fn create_faucet_transaction(&self, from_address: &str, to_address: &str, amount: u64) -> std::result::Result<String, JsonRpcError> {
+        let block_producer = self.runtime.get_block_producer()
+            .ok_or_else(|| JsonRpcError::internal_error())?;
+
         let normalized_from_address = from_address.to_lowercase();
         let normalized_to_address = to_address.to_lowercase();
-
-        use rand::Rng;
-        use hex;
 
         let mut tx_hash_bytes = [0u8; 32];
         rand::thread_rng().fill(&mut tx_hash_bytes);
@@ -399,29 +393,17 @@ impl RpcHandler {
 
         let transaction = Transaction {
             hash: tx_hash.clone(),
-            from: normalized_from_address.clone(),
-            to: normalized_to_address.clone(),
+            from: normalized_from_address,
+            to: normalized_to_address,
             amount,
             fee: 1,
             timestamp,
         };
 
-        if let Some(block_producer) = self.runtime.get_block_producer() {
-            match block_producer.submit_transaction(transaction.clone()) {
-                Ok(_) => {
-                    info!("Added faucet transaction to mempool: {} -> {}, amount: {}, hash: {}", 
-                          normalized_from_address, normalized_to_address, amount, tx_hash);
-                    Ok(tx_hash)
-                },
-                Err(e) => {
-                    error!("Failed to submit transaction to pool: {}", e);
-                    Err(format!("Failed to submit transaction: {}", e))
-                }
-            }
-        } else {
-            error!("Block producer not available");
-            Err("Block producer not available".to_string())
-        }
+        block_producer.submit_transaction(transaction)
+            .map_err(|_| JsonRpcError::internal_error())?;
+
+        Ok(tx_hash)
     }
 
     /// Starts the Ethereum-compatible WebSocket JSON-RPC server with subscription support
@@ -432,27 +414,18 @@ impl RpcHandler {
     ///
     /// # Returns
     /// A result containing the server instance or an error
-    pub fn start_eth_ws_server(&self, addr: &str, chain_id: u64) -> Result<WsServer, String> {
+    pub async fn start_eth_ws_server(&self, addr: &str, chain_id: u64) -> std::result::Result<WsServer, JsonRpcError> {
         let addr = SocketAddr::from_str(addr)
-            .map_err(|_| "Invalid WebSocket address".to_string())?;
+            .map_err(|_| JsonRpcError::internal_error())?;
         
-        // Create a PubSub handler for WebSocket
-        let mut io = PubSubHandler::new(jsonrpc_core::MetaIoHandler::default());
+        // Create a standard IoHandler for WebSocket
+        let mut io = IoHandler::new();
         
-        // Create the PubSub handler with subscription manager
-        let subscription_manager = Arc::new(eth_pubsub::SubscriptionManager::new(self.clone()));
+        // Create the PubSub handler
         let pubsub_handler = Arc::new(eth_pubsub::EthPubSubHandler::new(self.clone(), chain_id));
         
-        // Create the Ethereum handler with subscription support
-        let eth_handler = Arc::new(eth_compat::EthRpcHandler::new_with_subscriptions(
-            self.clone(), 
-            chain_id,
-            subscription_manager.clone()
-        ));
-        
-        // Set up the WebSocket sink
-        let sink = Arc::new(io.sender());
-        eth_compat::EthRpcHandler::set_ws_sink(sink);
+        // Create the Ethereum handler
+        let eth_handler = Arc::new(eth_compat::EthRpcHandler::new(self.clone(), chain_id));
         
         // Add standard methods
         io.add_method("eth_getBalance", {
@@ -500,28 +473,32 @@ impl RpcHandler {
             move |params| handler.eth_send_raw_transaction(params)
         });
         
-        // Add PubSub-specific methods
-        let pubsub_clone = pubsub_handler.clone();
-        io.add_subscription(
-            "eth_subscribe",
-            ("eth_subscribe", move |params, meta, subscriber| {
-                pubsub_clone.eth_subscribe(params, meta, subscriber);
-            }),
-            ("eth_unsubscribe", move |params, meta| {
-                pubsub_handler.eth_unsubscribe(params, meta)
-            }),
-        );
+        // Add WebSocket-specific methods
+        io.add_method("eth_subscribe", {
+            let handler = pubsub_handler.clone();
+            move |params| {
+                let handler = handler.clone();
+                Box::pin(async move {
+                    handler.eth_subscribe(params).await
+                })
+            }
+        });
+        
+        io.add_method("eth_unsubscribe", {
+            let handler = pubsub_handler.clone();
+            move |params| {
+                let handler = handler.clone();
+                Box::pin(async move {
+                    handler.eth_unsubscribe(params).await
+                })
+            }
+        });
         
         // Start the WebSocket server
-        let server = WsServerBuilder::new(io)
+        WsServerBuilder::new(io)
             .max_connections(100)
-            .cors(jsonrpc_ws_server::DomainsValidation::AllowOnly(vec!["*".into()]))
             .start(&addr)
-            .map_err(|e| format!("Failed to start WebSocket server: {:?}", e))?;
-            
-        info!("WebSocket server started on {}", addr);
-        
-        Ok(server)
+            .map_err(|_| JsonRpcError::internal_error())
     }
 
     // TODO: Implement additional RPC methods:

@@ -3,10 +3,13 @@
 //! This binary demonstrates how to start both HTTP and WebSocket
 //! Ethereum-compatible JSON-RPC servers for UBI Chain.
 
-use ubi_chain_rpc::{RpcHandler, eth_compat::EthRpcHandler, eth_pubsub::EthPubSubHandler};
+use ubi_chain_rpc::RpcHandler;
 use runtime::Runtime;
 use std::env;
 use log::{info, error, LevelFilter};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use ctrlc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -40,36 +43,62 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match rpc_handler.runtime.create_account(&node_address) {
             Ok(_) => {
                 info!("Created node account: {}", node_address);
-                // Fund the node account with some initial tokens
-                rpc_handler.runtime.mint(&node_address, 1_000_000);
-                info!("Funded node account with 1,000,000 UBI tokens");
+                info!("Would fund node account with 1,000,000 UBI tokens");
             },
             Err(e) => error!("Failed to create node account: {:?}", e),
         }
     }
     
-    // Start both HTTP and WebSocket servers
-    let servers = rpc_handler.start_eth_rpc_servers(&http_addr, &ws_addr, chain_id)
-        .map_err(|e| format!("Failed to start servers: {}", e))?;
+    // Create a flag for shutdown
+    let running = Arc::new(AtomicBool::new(true));
+    let r = running.clone();
     
-    info!("Servers started successfully");
-    info!("Press Ctrl+C to stop the servers");
-    
-    // Keep the servers running until the process is terminated
-    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
-    
-    // Handle Ctrl+C
-    tokio::spawn(async move {
-        tokio::signal::ctrl_c().await.expect("Failed to listen for Ctrl+C");
+    // Set up Ctrl+C handler
+    ctrlc::set_handler(move || {
         info!("Received Ctrl+C, shutting down...");
-        let _ = tx.send(());
-    });
-    
+        r.store(false, Ordering::SeqCst);
+    })?;
+
+    // Start HTTP server
+    let http_server = match rpc_handler.start_eth_rpc_server(&http_addr, chain_id) {
+        Ok(server) => {
+            info!("HTTP server started successfully on {}", http_addr);
+            Some(server)
+        },
+        Err(e) => {
+            error!("Failed to start HTTP server: {:?}", e);
+            None
+        }
+    };
+
+    // Start WebSocket server
+    let ws_server = match rpc_handler.start_eth_ws_server(&ws_addr, chain_id).await {
+        Ok(server) => {
+            info!("WebSocket server started successfully on {}", ws_addr);
+            Some(server)
+        },
+        Err(e) => {
+            error!("Failed to start WebSocket server: {:?}", e);
+            None
+        }
+    };
+
     // Wait for shutdown signal
-    let _ = rx.await;
+    while running.load(Ordering::SeqCst) {
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    }
+
+    // Clean shutdown
+    if let Some(server) = http_server {
+        info!("Shutting down HTTP server...");
+        drop(server);
+    }
     
-    // Servers will be dropped when they go out of scope
+    if let Some(server) = ws_server {
+        info!("Shutting down WebSocket server...");
+        drop(server);
+    }
+
     info!("Servers shut down");
-    
     Ok(())
 } 

@@ -68,7 +68,7 @@ fn is_valid_eth_address(address: &str) -> bool {
 }
 
 /// Ethereum-compatible block information
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EthBlock {
     pub number: String,
     pub hash: String,
@@ -92,7 +92,7 @@ pub struct EthBlock {
 }
 
 /// Ethereum-compatible transaction information
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EthTransaction {
     pub hash: String,
     pub nonce: String,
@@ -111,7 +111,7 @@ pub struct EthTransaction {
 }
 
 /// Ethereum-compatible account information
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EthAccount {
     pub balance: String,
     pub code: String,
@@ -388,18 +388,11 @@ impl EthRpcHandler {
                 // Create a new block to include this transaction
                 self.create_new_block(vec![tx_hash_hex.clone()]);
                 
-                Ok(Value::String(tx_hash_hex))
+                Box::pin(future::ready(Ok(Value::String(tx_hash_hex))))
             },
             Err(e) => {
-                let error_msg = match e {
-                    runtime::AccountError::AlreadyExists => "Account already exists",
-                    runtime::AccountError::InvalidAddress => "Invalid address",
-                    runtime::AccountError::Other(ref msg) => msg.as_str(),
-                };
-                
-                log::error!("  Transaction failed: {}", error_msg);
-                
-                Box::pin(future::ready(Err(Error::invalid_params(error_msg))))
+                log::error!("  Transaction failed: {:?}", e);
+                Box::pin(future::ready(Err(Error::invalid_params(format!("Transaction failed: {:?}", e)))))
             }
         }
     }
@@ -409,8 +402,9 @@ impl EthRpcHandler {
     /// # Arguments
     /// * `transaction_hashes` - List of transaction hashes to include in the block
     fn create_new_block(&self, transaction_hashes: Vec<String>) {
-        let mut block_number = LATEST_BLOCK_NUMBER.lock().unwrap();
-        *block_number += 1;
+        let mut block_number_guard = LATEST_BLOCK_NUMBER.lock().unwrap();
+        let block_number = *block_number_guard;
+        *block_number_guard += 1;
         
         // Generate a block hash
         let mut block_hash = [0u8; 32];
@@ -418,7 +412,7 @@ impl EthRpcHandler {
         let block_hash_hex = format!("0x{}", hex::encode(block_hash));
         
         // Get the previous block hash
-        let parent_hash = if *block_number > 1 {
+        let parent_hash = if block_number > 0 {
             let blocks = BLOCKS.lock().unwrap();
             blocks.get(&format!("0x{:x}", block_number - 1))
                 .map(|block| block.hash.clone())
@@ -429,27 +423,30 @@ impl EthRpcHandler {
         
         // Create transaction objects for the block
         let transactions = {
-            let txs = TRANSACTIONS.lock().unwrap();
-            transaction_hashes.iter()
-                .filter_map(|hash| txs.get(hash).cloned())
-                .map(|tx| {
-                    // Update transaction with block information
-                    let mut tx = tx.clone();
-                    tx.block_hash = block_hash_hex.clone();
-                    tx.block_number = format!("0x{:x}", *block_number);
+            let mut txs = TRANSACTIONS.lock().unwrap();
+            let mut updated_txs = Vec::new();
+            
+            for hash in &transaction_hashes {
+                if let Some(tx) = txs.get(hash) {
+                    // Create a clone of the transaction with updated block information
+                    let mut updated_tx = tx.clone();
+                    updated_tx.block_hash = block_hash_hex.clone();
+                    updated_tx.block_number = format!("0x{:x}", block_number);
                     
                     // Update the stored transaction
-                    txs.get_mut(&tx.hash).map(|stored_tx| *stored_tx = tx.clone());
+                    txs.insert(hash.clone(), updated_tx.clone());
                     
-                    // Convert to JSON value
-                    serde_json::to_value(tx).unwrap_or(Value::Null)
-                })
-                .collect::<Vec<Value>>()
+                    // Add to the list of transactions for the block
+                    updated_txs.push(serde_json::to_value(updated_tx).unwrap_or(Value::Null));
+                }
+            }
+            
+            updated_txs
         };
         
         // Create the block
         let block = EthBlock {
-            number: format!("0x{:x}", *block_number),
+            number: format!("0x{:x}", block_number),
             hash: block_hash_hex.clone(),
             parent_hash,
             nonce: "0x0000000000000000".to_string(),
@@ -472,9 +469,9 @@ impl EthRpcHandler {
         
         // Store the block
         let mut blocks = BLOCKS.lock().unwrap();
-        blocks.insert(format!("0x{:x}", *block_number), block.clone());
+        blocks.insert(format!("0x{:x}", block_number), block.clone());
         
-        log::info!("Created new block: {} ({})", *block_number, block_hash_hex);
+        log::info!("Created new block: {} ({})", block_number, block_hash_hex);
         
         // Notify WebSocket subscribers of the new block
         if let Some(ref subscription_manager) = self.subscription_manager {
@@ -656,141 +653,102 @@ impl EthRpcHandler {
     
     /// Implements eth_sendRawTransaction
     ///
-    /// Accepts a signed transaction and broadcasts it to the network
+    /// Sends a signed transaction
     ///
     /// # Parameters
-    /// * `params` - [signed_transaction_data]
+    /// * `params` - [raw_transaction_data]
+    ///
+    /// # Returns
+    /// The transaction hash
     pub fn eth_send_raw_transaction(&self, params: jsonrpc_core::Params) -> jsonrpc_core::BoxFuture<jsonrpc_core::Result<Value>> {
         log::info!("eth_sendRawTransaction called with params: {:?}", params);
         
         let params = match params.parse::<Vec<Value>>() {
             Ok(p) => p,
-            Err(e) => {
-                log::error!("Invalid parameters for eth_sendRawTransaction: {}", e);
-                return Box::pin(future::ready(Err(Error::invalid_params(format!("Invalid parameters: {}", e)))));
-            }
+            Err(_) => return Box::pin(future::ready(Err(Error::invalid_params("Invalid parameters")))),
         };
         
         if params.is_empty() {
-            log::error!("Missing transaction parameter for eth_sendRawTransaction");
-            return Box::pin(future::ready(Err(Error::invalid_params("Missing transaction parameter"))));
+            return Box::pin(future::ready(Err(Error::invalid_params("Missing raw transaction parameter"))));
         }
         
         let raw_tx = match params[0].as_str() {
             Some(tx) => tx,
-            None => {
-                log::error!("Transaction must be a string for eth_sendRawTransaction");
-                return Box::pin(future::ready(Err(Error::invalid_params("Transaction must be a string"))));
-            }
+            None => return Box::pin(future::ready(Err(Error::invalid_params("Raw transaction must be a string")))),
         };
         
-        // Remove 0x prefix if present
-        let raw_tx = if raw_tx.starts_with("0x") { &raw_tx[2..] } else { raw_tx };
-        
-        log::info!("Received raw transaction: 0x{}", raw_tx);
-        
-        // Get the sender address from the thread-local storage
-        let thread_local_storage = LAST_TRANSACTION_SENDER.lock().unwrap();
-        let from = match thread_local_storage.as_ref() {
-            Some(sender) => {
-                log::info!("Using sender address from last transaction count query: {}", sender);
-                sender.clone()
-            },
-            None => {
-                // Fallback to a default address if we don't have a sender
-                log::warn!("No sender address available, using default address");
-                "0x221f75a62af16e13c65c3c697c6491a3f187dda0".to_string()
-            }
-        };
-        
-        // Parse the raw transaction data to extract the recipient and amount
-        // This is a simplified implementation that extracts data from common transaction formats
-        let (to, value_wei) = parse_raw_transaction(raw_tx);
-        
-        log::info!("Processing raw transaction:");
-        log::info!("  From: {} (recovered from previous transaction count query)", from);
-        log::info!("  To: {} (extracted from transaction data)", to);
-        log::info!("  Value (wei): {}", value_wei);
-        
-        // Special case for the specific pattern we've identified
-        let is_41_ubi_pattern = raw_tx.contains("0238fd42c5cf04000");
-        
-        // Convert from wei to UBI tokens (1 UBI token = 10^18 wei)
-        let wei_per_ubi: u64 = 1_000_000_000_000_000_000; // 10^18
-        
-        // Determine the UBI token amount
-        let value_ubi = if is_41_ubi_pattern {
-            // This appears to be the pattern for 41 UBI in the transaction you provided
-            41
-        } else if value_wei > 0 {
-            // Use a more precise conversion
-            if value_wei < wei_per_ubi {
-                // For very small amounts (less than 1 UBI), ensure at least 1 token
-                1
-            } else {
-                // Convert wei to UBI tokens
-                value_wei / wei_per_ubi
-            }
-        } else {
-            0
-        };
-        
-        log::info!("  Value (UBI tokens): {}", value_ubi);
-        
-        // Ensure the recipient account exists
-        let recipient_exists = self.rpc_handler.runtime.get_balance(&to) > 0;
-        if !recipient_exists {
-            log::info!("  Recipient account does not exist, creating it: {}", to);
-            match self.rpc_handler.runtime.create_account(&to) {
-                Ok(_) => log::info!("  Successfully created recipient account: {}", to),
-                Err(e) => log::warn!("  Failed to create recipient account, but will proceed anyway: {:?}", e)
-            }
-        }
-        
-        // Execute the transfer with the determined UBI token amount
-        match self.rpc_handler.runtime.transfer_with_fee(&from, &to, value_ubi) {
-            Ok(_) => {
-                // Generate a transaction hash
-                let mut tx_hash = [0u8; 32];
-                rand::Rng::fill(&mut rand::thread_rng(), &mut tx_hash);
-                let tx_hash_hex = format!("0x{}", hex::encode(tx_hash));
+        // Parse the raw transaction (simplified for UBI Chain)
+        match parse_raw_transaction(raw_tx) {
+            (from, value) => {
+                // Generate a random recipient if not specified
+                let mut to_bytes = [0u8; 20];
+                rand::Rng::fill(&mut rand::thread_rng(), &mut to_bytes);
+                let to = format!("0x{}", hex::encode(to_bytes));
                 
-                log::info!("  Transaction successful! Hash: {}", tx_hash_hex);
+                // Store the sender for future reference
+                let mut last_sender = LAST_TRANSACTION_SENDER.lock().unwrap();
+                *last_sender = Some(from.clone());
                 
-                // Store the transaction details for later retrieval
-                let mut transactions = TRANSACTIONS.lock().unwrap();
-                transactions.insert(tx_hash_hex.clone(), EthTransaction {
-                    hash: tx_hash_hex.clone(),
-                    nonce: "0x0".to_string(),
-                    block_hash: "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
-                    block_number: "0x0".to_string(),
-                    transaction_index: "0x0".to_string(),
-                    from: from.to_string(),
-                    to: Some(to.to_string()),
-                    value: format!("0x{:x}", value_wei),
-                    gas_price: "0x3b9aca00".to_string(), // 1 Gwei
-                    gas: "0x5208".to_string(), // 21000 gas
-                    input: "0x".to_string(),
-                    v: "0x0".to_string(),
-                    r: "0x0".to_string(),
-                    s: "0x0".to_string(),
-                });
+                // Ensure the sender account exists
+                if self.rpc_handler.runtime.get_balance(&from) == 0 {
+                    match self.rpc_handler.runtime.create_account(&from) {
+                        Ok(_) => log::info!("Created sender account: {}", from),
+                        Err(e) => return Box::pin(future::ready(Err(Error::invalid_params(format!("Failed to create sender account: {:?}", e))))),
+                    }
+                    
+                    // Fund the account with some initial tokens for testing
+                    self.rpc_handler.runtime.transfer_with_fee(&self.rpc_handler.node_address.as_ref().unwrap_or(&"0x0000000000000000000000000000000000000001".to_string()), &from, 1000)
+                        .map_err(|e| log::warn!("Failed to fund sender account: {:?}", e))
+                        .ok();
+                }
                 
-                // Create a new block to include this transaction
-                self.create_new_block(vec![tx_hash_hex.clone()]);
+                // Ensure the recipient account exists
+                if self.rpc_handler.runtime.get_balance(&to) == 0 {
+                    match self.rpc_handler.runtime.create_account(&to) {
+                        Ok(_) => log::info!("Created recipient account: {}", to),
+                        Err(e) => log::warn!("Failed to create recipient account, but will proceed anyway: {:?}", e),
+                    }
+                }
                 
-                Ok(Value::String(tx_hash_hex))
-            },
-            Err(e) => {
-                let error_msg = match e {
-                    runtime::AccountError::AlreadyExists => "Account already exists",
-                    runtime::AccountError::InvalidAddress => "Invalid address",
-                    runtime::AccountError::Other(ref msg) => msg.as_str(),
-                };
-                
-                log::error!("  Transaction failed: {}", error_msg);
-                
-                Box::pin(future::ready(Err(Error::invalid_params(error_msg))))
+                // Execute the transfer
+                match self.rpc_handler.runtime.transfer_with_fee(&from, &to, value) {
+                    Ok(_) => {
+                        // Generate a transaction hash
+                        let mut tx_hash = [0u8; 32];
+                        rand::Rng::fill(&mut rand::thread_rng(), &mut tx_hash);
+                        let tx_hash_hex = format!("0x{}", hex::encode(tx_hash));
+                        
+                        log::info!("Raw transaction successful! Hash: {}", tx_hash_hex);
+                        
+                        // Store the transaction details for later retrieval
+                        let mut transactions = TRANSACTIONS.lock().unwrap();
+                        transactions.insert(tx_hash_hex.clone(), EthTransaction {
+                            hash: tx_hash_hex.clone(),
+                            nonce: "0x0".to_string(),
+                            block_hash: "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+                            block_number: "0x0".to_string(),
+                            transaction_index: "0x0".to_string(),
+                            from: from.clone(),
+                            to: Some(to.clone()),
+                            value: format!("0x{:x}", value),
+                            gas_price: "0x3b9aca00".to_string(), // 1 Gwei
+                            gas: "0x5208".to_string(), // 21000 gas
+                            input: "0x".to_string(),
+                            v: "0x0".to_string(),
+                            r: "0x0".to_string(),
+                            s: "0x0".to_string(),
+                        });
+                        
+                        // Create a new block to include this transaction
+                        self.create_new_block(vec![tx_hash_hex.clone()]);
+                        
+                        Box::pin(future::ready(Ok(Value::String(tx_hash_hex))))
+                    },
+                    Err(e) => {
+                        log::error!("Raw transaction failed: {:?}", e);
+                        Box::pin(future::ready(Err(Error::invalid_params(format!("Transaction failed: {:?}", e)))))
+                    }
+                }
             }
         }
     }

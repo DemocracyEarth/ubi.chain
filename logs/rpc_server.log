@@ -1,0 +1,23 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running `target/debug/eth_rpc_server '127.0.0.1:8545' '127.0.0.1:8546' 2030`
+[2025-03-11T01:34:13Z INFO  eth_rpc_server] Starting Ethereum-compatible JSON-RPC servers
+[2025-03-11T01:34:13Z INFO  eth_rpc_server] HTTP server address: 127.0.0.1:8545
+[2025-03-11T01:34:13Z INFO  eth_rpc_server] WebSocket server address: 127.0.0.1:8546
+[2025-03-11T01:34:13Z INFO  eth_rpc_server] Chain ID: 2030
+[2025-03-11T01:34:13Z INFO  eth_rpc_server] Created node account: 0x0000000000000000000000000000000000000001
+[2025-03-11T01:34:13Z INFO  eth_rpc_server] Would fund node account with 1,000,000 UBI tokens
+[2025-03-11T01:34:13Z INFO  eth_rpc_server] HTTP server started successfully on 127.0.0.1:8545
+[2025-03-11T01:34:13Z INFO  parity_ws] Listening for new connections on 127.0.0.1:8546.
+[2025-03-11T01:34:13Z INFO  eth_rpc_server] WebSocket server started successfully on 127.0.0.1:8546
+[2025-03-11T01:34:14Z INFO  ubi_chain_rpc::eth_compat] eth_chainId called
+[2025-03-11T01:34:14Z INFO  ubi_chain_rpc::eth_compat] eth_chainId returning: 0x7ee
+Ethereum RPC: Faucet request for address=0x221f75a62Af16e13c65C3c697c6491a3F187DDA0, amount=Some(99)
+Ethereum RPC: Faucet request failed: Insufficient balance: 0 < 100
+[2025-03-11T01:35:16Z INFO  ubi_chain_rpc::eth_compat] eth_chainId called
+[2025-03-11T01:35:16Z INFO  ubi_chain_rpc::eth_compat] eth_chainId returning: 0x7ee
+[2025-03-11T01:36:00Z INFO  ubi_chain_rpc::eth_compat] eth_chainId called
+[2025-03-11T01:36:00Z INFO  ubi_chain_rpc::eth_compat] eth_chainId returning: 0x7ee
+[2025-03-11T01:37:07Z INFO  ubi_chain_rpc::eth_compat] eth_estimateGas called with params: Array([Object {"data": String("0xa9059cbb00000000000000000000000091b29b1f0cef5002191901f346208ef3f4ef67eb0000000000000000000000000000000000000000000000000000000000000000"), "from": String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), "gas": String("0x713fb300"), "gasPrice": String("0x0"), "to": String("0x000000000000000000000000000000000000767D"), "value": String("0x0")}])
+[2025-03-11T01:37:16Z INFO  ubi_chain_rpc::eth_compat] eth_estimateGas called with params: Array([Object {"data": String("0xa9059cbb00000000000000000000000091b29b1f0cef5002191901f346208ef3f4ef67eb0000000000000000000000000000000000000000000000000000000000000002"), "from": String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), "gas": String("0x713fb300"), "gasPrice": String("0x0"), "to": String("0x000000000000000000000000000000000000767D"), "value": String("0x0")}])
+[2025-03-11T01:37:19Z INFO  ubi_chain_rpc::eth_compat] eth_estimateGas called with params: Array([Object {"data": String("0xa9059cbb00000000000000000000000091b29b1f0cef5002191901f346208ef3f4ef67eb0000000000000000000000000000000000000000000000000000000000000001"), "from": String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), "gas": String("0x713fb300"), "gasPrice": String("0x0"), "to": String("0x000000000000000000000000000000000000767D"), "value": String("0x0")}])
+[2025-03-11T01:37:21Z INFO  ubi_chain_rpc::eth_compat] eth_estimateGas called with params: Array([Object {"data": String("0xa9059cbb00000000000000000000000091b29b1f0cef5002191901f346208ef3f4ef67eb0000000000000000000000000000000000000000000000000000000000000003"), "from": String("0x221f75a62af16e13c65c3c697c6491a3f187dda0"), "gas": String("0x713fb300"), "gasPrice": String("0x0"), "to": String("0x000000000000000000000000000000000000767D"), "value": String("0x0")}])

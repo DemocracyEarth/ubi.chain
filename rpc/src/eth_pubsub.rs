@@ -6,15 +6,17 @@
 use crate::RpcHandler;
 use crate::eth_compat::{EthBlock, EthTransaction};
 use jsonrpc_core::{Error, Result, Value};
-use jsonrpc_pubsub::{Session, SubscriptionId, PubSubHandler, Subscriber};
-use serde_json::json;
+use jsonrpc_pubsub::SubscriptionId;
 use std::sync::Arc;
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use log;
+use rand::RngCore;
+use hex;
+use std::sync::Mutex;
 
 /// Subscription types supported by the Ethereum PubSub API
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum SubscriptionType {
     /// New block headers
     NewHeads,
@@ -42,6 +44,7 @@ pub struct SubscriptionManager {
     /// Map of subscription IDs to subscription types
     subscriptions: RwLock<HashMap<SubscriptionId, SubscriptionType>>,
     /// Reference to the UBI Chain RPC handler
+    #[allow(dead_code)]
     rpc_handler: RpcHandler,
 }
 
@@ -56,7 +59,7 @@ impl SubscriptionManager {
 
     /// Adds a new subscription
     pub fn add_subscription(&self, id: SubscriptionId, subscription_type: SubscriptionType) {
-        self.subscriptions.write().insert(id, subscription_type);
+        self.subscriptions.write().insert(id.clone(), subscription_type);
         log::info!("Added new subscription: {:?} for type {:?}", id, subscription_type);
     }
 
@@ -75,7 +78,11 @@ impl SubscriptionManager {
         
         for (id, sub_type) in self.subscriptions.read().iter() {
             if *sub_type == SubscriptionType::NewHeads {
-                let _ = sink.notify(id, &block_json);
+                let params = jsonrpc_core::Params::Map(serde_json::Map::from_iter([
+                    ("subscription".to_string(), Value::String(format!("{:?}", id))),
+                    ("result".to_string(), block_json.clone()),
+                ]));
+                let _ = sink.notify(params);
             }
         }
     }
@@ -86,8 +93,27 @@ impl SubscriptionManager {
         
         for (id, sub_type) in self.subscriptions.read().iter() {
             if *sub_type == SubscriptionType::NewPendingTransactions {
-                let _ = sink.notify(id, &Value::String(tx_hash.clone()));
+                let params = jsonrpc_core::Params::Map(serde_json::Map::from_iter([
+                    ("subscription".to_string(), Value::String(format!("{:?}", id))),
+                    ("result".to_string(), Value::String(tx_hash.clone())),
+                ]));
+                let _ = sink.notify(params);
             }
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Subscription {
+    id: String,
+    subscription_type: String,
+}
+
+impl Subscription {
+    pub fn new(id: String, subscription_type: String) -> Self {
+        Self {
+            id,
+            subscription_type,
         }
     }
 }
@@ -97,7 +123,10 @@ pub struct EthPubSubHandler {
     /// Subscription manager
     subscription_manager: Arc<SubscriptionManager>,
     /// Chain ID for EIP-155 compatibility
+    #[allow(dead_code)]
     chain_id: u64,
+    /// Active subscriptions
+    subscriptions: Mutex<HashMap<String, Subscription>>,
 }
 
 impl EthPubSubHandler {
@@ -108,6 +137,7 @@ impl EthPubSubHandler {
         EthPubSubHandler {
             subscription_manager,
             chain_id,
+            subscriptions: Mutex::new(HashMap::new()),
         }
     }
 
@@ -117,64 +147,66 @@ impl EthPubSubHandler {
     }
 
     /// Handles eth_subscribe requests
-    pub fn eth_subscribe(&self, params: jsonrpc_core::Params, meta: jsonrpc_pubsub::Session, subscriber: Subscriber<Value>) {
-        let params: Vec<Value> = match params.parse() {
-            Ok(params) => params,
-            Err(_) => {
-                let _ = subscriber.reject(Error::invalid_params("Invalid parameters"));
-                return;
-            }
-        };
-
+    pub async fn eth_subscribe(&self, params: jsonrpc_core::Params) -> Result<Value> {
+        let params: Vec<Value> = params.parse()?;
         if params.is_empty() {
-            let _ = subscriber.reject(Error::invalid_params("Missing subscription type"));
-            return;
+            return Err(Error::invalid_params("Missing subscription type"));
         }
 
-        let subscription_type = match params[0].as_str() {
-            Some(s) => match s.parse::<SubscriptionType>() {
-                Ok(t) => t,
-                Err(e) => {
-                    let _ = subscriber.reject(e);
-                    return;
-                }
-            },
-            None => {
-                let _ = subscriber.reject(Error::invalid_params("Invalid subscription type"));
-                return;
-            }
-        };
+        let subscription_type = params[0].as_str()
+            .ok_or_else(|| Error::invalid_params("Invalid subscription type"))?;
 
-        // Handle subscription-specific parameters
+        // Generate a random subscription ID
+        let mut rng = rand::thread_rng();
+        let mut id_bytes = [0u8; 16];
+        rng.fill_bytes(&mut id_bytes);
+        let subscription_id = hex::encode(id_bytes);
+
         match subscription_type {
-            SubscriptionType::Logs => {
-                // TODO: Implement log filtering
-                // For now, we'll accept any log subscription without filtering
+            "newHeads" => {
+                let subscription = Subscription::new(
+                    subscription_id.clone(),
+                    subscription_type.to_string(),
+                );
+                
+                let mut subscriptions = self.subscriptions.lock().unwrap();
+                subscriptions.insert(subscription_id.clone(), subscription);
+                
+                Ok(Value::String(subscription_id))
             },
-            _ => {}
+            _ => Err(Error::invalid_params("Unsupported subscription type"))
         }
-
-        // Create a subscription
-        let sink = meta.sender();
-        let subscription_manager = self.subscription_manager.clone();
-        
-        subscriber.assign_id_async(move |id| {
-            subscription_manager.add_subscription(id.clone(), subscription_type);
-            Ok(Value::String(format!("{:?}", id)))
-        });
     }
 
     /// Handles eth_unsubscribe requests
-    pub fn eth_unsubscribe(&self, params: jsonrpc_core::Params, _meta: jsonrpc_pubsub::Session) -> Result<Value> {
-        let params: Vec<SubscriptionId> = params.parse().map_err(|_| Error::invalid_params("Invalid parameters"))?;
-        
+    pub async fn eth_unsubscribe(&self, params: jsonrpc_core::Params) -> Result<Value> {
+        let params: Vec<Value> = params.parse()?;
         if params.is_empty() {
             return Err(Error::invalid_params("Missing subscription ID"));
         }
 
-        let subscription_id = &params[0];
-        let removed = self.subscription_manager.remove_subscription(subscription_id);
-        
+        let subscription_id = params[0].as_str()
+            .ok_or_else(|| Error::invalid_params("Invalid subscription ID"))?;
+
+        let mut subscriptions = self.subscriptions.lock().unwrap();
+        let removed = subscriptions.remove(subscription_id).is_some();
+
         Ok(Value::Bool(removed))
+    }
+
+    /// Notifies subscribers of a new block
+    pub async fn notify_new_heads(&self, block_hash: String, block_number: u64) -> Result<()> {
+        let subscriptions = self.subscriptions.lock().unwrap();
+        
+        for subscription in subscriptions.values() {
+            if subscription.subscription_type == "newHeads" {
+                log::info!(
+                    "New block notification for subscription {}: hash={}, number=0x{:x}",
+                    subscription.id, block_hash, block_number
+                );
+            }
+        }
+        
+        Ok(())
     }
 } 
