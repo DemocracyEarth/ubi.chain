@@ -11,7 +11,7 @@
 
 use runtime::{Runtime, AccountError, Transaction};
 use serde::{Deserialize, Serialize};
-use log::info;
+use log::{info, warn, error};
 
 // Add Ethereum compatibility module
 pub mod eth_compat;
@@ -22,9 +22,12 @@ pub mod eth_pubsub;
 // extern crate ubi_chain_node as node;
 // use node::Transaction;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::str::FromStr;
+use std::fmt;
 use jsonrpc_core::{IoHandler, Error as JsonRpcError};
 use jsonrpc_http_server::Server as HttpServer;
 use jsonrpc_ws_server::{Server as WsServer, ServerBuilder as WsServerBuilder};
@@ -333,34 +336,35 @@ impl RpcHandler {
             }
         }
 
-        // Create a transaction and add it to the transaction pool
-        // Note: We no longer directly transfer tokens here, as the transaction will be processed by the block producer
-        match self.create_faucet_transaction(&faucet_address, &normalized_address, tokens_to_send).await {
-            Ok(tx_hash) => {
-                info!("Transaction successfully created with hash: {}", tx_hash);
+        // Instead of creating a transaction, directly transfer the tokens
+        match self.runtime.transfer_with_fee(&faucet_address, &normalized_address, tokens_to_send) {
+            Ok(_) => {
+                info!("Faucet transfer successful: {} tokens sent to {}", tokens_to_send, normalized_address);
                 
-                // Get the current balance (before the transaction is processed)
-                let current_balance = self.runtime.get_balance(&normalized_address);
+                // Get the updated balance
+                let new_balance = self.runtime.get_balance(&normalized_address);
                 
-                // The transaction will be processed in the next block
-                info!("Faucet transaction created: {} tokens will be sent to {} in the next block", 
-                      tokens_to_send, normalized_address);
+                // Generate a transaction hash for compatibility
+                let mut tx_hash_bytes = [0u8; 32];
+                rand::thread_rng().fill(&mut tx_hash_bytes);
+                let tx_hash = format!("0x{}", hex::encode(tx_hash_bytes));
                 
                 FaucetResponse {
                     success: true,
                     amount: Some(tokens_to_send),
-                    new_balance: Some(current_balance), // Return current balance before transaction is processed
+                    new_balance: Some(new_balance),
                     transaction_hash: Some(tx_hash),
                     error: None,
                 }
             },
             Err(e) => {
+                error!("Faucet transfer failed: {:?}", e);
                 FaucetResponse {
                     success: false,
                     amount: None,
                     new_balance: None,
                     transaction_hash: None,
-                    error: Some(format!("Failed to create transaction: {}", e)),
+                    error: Some(format!("Failed to transfer tokens: {:?}", e)),
                 }
             }
         }

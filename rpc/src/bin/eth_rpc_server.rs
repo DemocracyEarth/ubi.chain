@@ -43,7 +43,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match rpc_handler.runtime.create_account(&node_address) {
             Ok(_) => {
                 info!("Created node account: {}", node_address);
-                info!("Would fund node account with 1,000,000 UBI tokens");
+                // Actually fund the account with 1,000,000 UBI tokens
+                match rpc_handler.runtime.credit_balance(&node_address, 1_000_000) {
+                    Ok(balance) => info!("Funded node account with 1,000,000 UBI tokens. New balance: {}", balance),
+                    Err(e) => error!("Failed to fund node account: {:?}", e),
+                }
             },
             Err(e) => error!("Failed to create node account: {:?}", e),
         }
