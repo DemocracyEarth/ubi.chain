@@ -231,13 +231,26 @@ impl EthRpcHandler {
             let address = params[0].as_str().ok_or_else(|| Error::invalid_params("Invalid address parameter"))?;
             let normalized_address = address.to_lowercase();
 
-            // Query the actual balance from the runtime
+            // Query the actual balance from the runtime (in UBI tokens)
             let balance = runtime.get_balance(&normalized_address);
 
-            // Convert balance to Wei (assuming 1 UBI token = 1e18 Wei for Ethereum compatibility)
-            let balance_wei = U256::from(balance) * U256::exp10(18);
+            // Convert UBI tokens to Wei (1 UBI token = 10^18 Wei)
+            let balance_wei = if balance == 0 {
+                primitive_types::U256::zero()
+            } else {
+                // Convert balance to U256 and multiply by 10^18
+                let balance_u256 = primitive_types::U256::from(balance);
+                let wei_factor = primitive_types::U256::exp10(18);
+                balance_u256 * wei_factor
+            };
 
-            Ok(Value::String(format!("0x{:x}", balance_wei)))
+            // Format the balance in hex
+            let balance_hex = format!("0x{:x}", balance_wei);
+            
+            log::info!("eth_getBalance for {}: {} UBI tokens ({} wei)", 
+                      normalized_address, balance, balance_hex);
+
+            Ok(Value::String(balance_hex))
         })
     }
     
@@ -306,7 +319,7 @@ impl EthRpcHandler {
                 if let Some(value_str) = value.as_str() {
                     if value_str.starts_with("0x") {
                         // Parse hex value
-                        match u64::from_str_radix(&value_str[2..], 16) {
+                        match primitive_types::U256::from_str_radix(&value_str[2..], 16) {
                             Ok(v) => v,
                             Err(e) => {
                                 log::error!("Invalid value format for eth_sendTransaction: {:?}", e);
@@ -315,7 +328,7 @@ impl EthRpcHandler {
                         }
                     } else {
                         // Parse decimal value
-                        match value_str.parse::<u64>() {
+                        match value_str.parse::<primitive_types::U256>() {
                             Ok(v) => v,
                             Err(e) => {
                                 log::error!("Invalid value format for eth_sendTransaction: {:?}", e);
@@ -324,13 +337,13 @@ impl EthRpcHandler {
                         }
                     }
                 } else if let Some(value_num) = value.as_u64() {
-                    value_num
+                    primitive_types::U256::from(value_num)
                 } else {
                     log::error!("Invalid value type for eth_sendTransaction");
                     return Box::pin(future::ready(Err(Error::invalid_params("Invalid value type"))));
                 }
             },
-            None => 0, // Default to 0 if not specified
+            None => primitive_types::U256::zero(), // Default to 0 if not specified
         };
         
         log::info!("Processing transaction from MetaMask:");
@@ -338,24 +351,26 @@ impl EthRpcHandler {
         log::info!("  To: {}", to);
         log::info!("  Value (wei): {}", value_wei);
         
-        // Convert wei to UBI tokens
-        // 1 UBI = 10^18 wei (same as ETH)
-        let wei_per_ubi = 1_000_000_000_000_000_000u64;
-        
-        let value_ubi = if params[0].as_str().unwrap_or("").contains("0238fd42c5cf04000") {
-            // This appears to be the pattern for 41 UBI in the transaction you provided
-            41
-        } else if value_wei > 0 {
-            // Use a more precise conversion
-            if value_wei < wei_per_ubi {
-                // For very small amounts (less than 1 UBI), ensure at least 1 token
-                1
-            } else {
-                // Convert wei to UBI tokens
-                value_wei / wei_per_ubi
-            }
-        } else {
+        // Convert wei to UBI tokens (1 UBI = 10^18 wei)
+        let wei_factor = primitive_types::U256::exp10(18);
+        let value_ubi = if value_wei.is_zero() {
             0
+        } else {
+            // Convert wei to UBI tokens by dividing by 10^18
+            match value_wei.checked_div(wei_factor) {
+                Some(ubi) => {
+                    if ubi > primitive_types::U256::from(u64::MAX) {
+                        log::warn!("Value too large, capping at u64::MAX: {}", ubi);
+                        u64::MAX
+                    } else {
+                        ubi.as_u64()
+                    }
+                },
+                None => {
+                    log::error!("Division error when converting wei to UBI");
+                    return Box::pin(future::ready(Err(Error::invalid_params("Value conversion error"))));
+                }
+            }
         };
         
         log::info!("  Value (UBI tokens): {}", value_ubi);
@@ -369,34 +384,6 @@ impl EthRpcHandler {
                 Err(e) => {
                     log::warn!("  Failed to create recipient account: {:?}", e);
                     return Box::pin(future::ready(Err(Error::invalid_params(format!("Failed to create recipient account: {:?}", e)))));
-                }
-            }
-        }
-        
-        // Ensure the sender account exists
-        let sender_exists = self.rpc_handler.runtime.get_balance(&from_lower) > 0;
-        if !sender_exists {
-            log::info!("  Sender account does not exist, creating it: {}", from);
-            match self.rpc_handler.runtime.create_account(&from_lower) {
-                Ok(_) => {
-                    log::info!("  Successfully created sender account: {}", from);
-                    
-                    // Fund the account with some initial tokens for testing
-                    let node_address = self.rpc_handler.node_address.as_ref()
-                        .unwrap_or(&"0x0000000000000000000000000000000000000001".to_string())
-                        .to_lowercase();
-                        
-                    match self.rpc_handler.runtime.transfer_with_fee(&node_address, &from_lower, 1000) {
-                        Ok(_) => log::info!("  Funded sender account with 1000 tokens"),
-                        Err(e) => {
-                            log::warn!("  Failed to fund sender account: {:?}", e);
-                            return Box::pin(future::ready(Err(Error::invalid_params(format!("Failed to fund sender account: {:?}", e)))));
-                        }
-                    }
-                },
-                Err(e) => {
-                    log::warn!("  Failed to create sender account: {:?}", e);
-                    return Box::pin(future::ready(Err(Error::invalid_params(format!("Failed to create sender account: {:?}", e)))));
                 }
             }
         }
@@ -420,7 +407,7 @@ impl EthRpcHandler {
                     transaction_index: "0x0".to_string(),
                     from: from.to_string(),
                     to: Some(to.to_string()),
-                    value: format!("0x{:x}", value_wei),
+                    value: format!("0x{:x}", value_wei), // Store the original wei value for MetaMask compatibility
                     gas_price: "0x3b9aca00".to_string(), // 1 Gwei
                     gas: "0x5208".to_string(), // 21000 gas
                     input: "0x".to_string(),
@@ -1068,9 +1055,6 @@ impl EthRpcHandler {
 /// Parse a raw transaction to extract the recipient address and amount
 /// This implementation uses a more targeted approach to extract data from RLP-encoded transactions
 fn parse_raw_transaction(raw_tx: &str) -> (String, u64) {
-    // For proper implementation, we should use an RLP decoder library
-    // For now, we'll use a more targeted approach to extract common patterns in Ethereum transactions
-    
     // Get the last known sender address
     let from = match LAST_TRANSACTION_SENDER.lock() {
         Ok(sender) => sender.clone().unwrap_or_else(|| "0x0000000000000000000000000000000000000000".to_string()),
@@ -1089,13 +1073,7 @@ fn parse_raw_transaction(raw_tx: &str) -> (String, u64) {
         }
     };
     
-    // In a standard Ethereum transaction, the recipient address is typically the 4th field
-    // and the value is the 5th field in the RLP encoding
-    
-    // For a simplified approach, we'll look for patterns in the raw bytes
-    // Ethereum addresses are 20 bytes long and often appear after some RLP encoding markers
-    
-    // Look for recipient address pattern (0x91b29B1f0CEf5002191901F346208Ef3F4ef67eb)
+    // Look for recipient address pattern
     let mut to = "0x0000000000000000000000000000000000000000".to_string();
     
     // Search for the "to" address pattern in the transaction
@@ -1109,37 +1087,27 @@ fn parse_raw_transaction(raw_tx: &str) -> (String, u64) {
         }
     }
     
-    // Extract value - for MetaMask transactions, the value is often encoded in a specific format
-    // Let's try to extract it directly from the raw transaction string
-    let mut value_wei: u64 = 0;
+    // Extract value - look for the value field after the "to" address
+    let mut value_wei = primitive_types::U256::zero();
     
-    // Check for specific value patterns in the transaction
-    // For 12 UBI (12 * 10^18 wei = 12000000000000000000 wei = 0xa688906bd8b00000 in hex)
-    if raw_tx.contains("a688906bd8b00000") {
-        log::info!("Found pattern for 12 UBI in transaction");
-        return (from, 12);
-    }
-    
-    // MetaMask typically encodes the value after the "to" address
-    // The pattern is often: to_address (20 bytes) followed by value field
-    if raw_tx.len() > 100 {
-        // Look for the value pattern in the transaction string
-        // The value is often encoded as a hex string after the address
-        let value_pattern = format!("{}", &to[2..]); // Remove 0x prefix
-        if let Some(pos) = raw_tx.find(&value_pattern) {
-            // The value field often follows the address field
-            let start_pos = pos + value_pattern.len();
-            if start_pos + 18 <= raw_tx.len() {
-                // Try to extract a value field (typically starts with 0x89 for non-zero values)
-                // Look for patterns like 0x89, 0x88, etc. which indicate value fields in RLP
-                for i in start_pos..start_pos.saturating_add(10).min(raw_tx.len()) {
-                    if i + 18 <= raw_tx.len() {
-                        let value_hex = &raw_tx[i..i+18];
-                        // Try to parse as a hex value
-                        if let Ok(value) = u64::from_str_radix(value_hex, 16) {
-                            if value > 0 {
+    // Look for value pattern in the transaction string
+    // The value is often encoded as a hex string after the address
+    let value_pattern = format!("{}", &to[2..]); // Remove 0x prefix
+    if let Some(pos) = raw_tx.find(&value_pattern) {
+        let start_pos = pos + value_pattern.len();
+        if start_pos + 18 <= raw_tx.len() {
+            // Look for value marker (0x89, 0x88, etc.) after the address
+            for i in start_pos..start_pos.saturating_add(10).min(raw_tx.len()) {
+                if i + 2 <= raw_tx.len() {
+                    let marker = &raw_tx[i..i+2];
+                    if marker == "89" || marker == "88" || marker == "87" {
+                        // Found a potential value marker, try to extract the value
+                        let value_start = i + 2;
+                        if value_start + 16 <= raw_tx.len() {
+                            let value_hex = &raw_tx[value_start..value_start+16];
+                            if let Ok(value) = primitive_types::U256::from_str_radix(value_hex, 16) {
                                 value_wei = value;
-                                log::info!("Found value after address: {} wei", value_wei);
+                                log::info!("Found value using marker approach: {} wei", value_wei);
                                 break;
                             }
                         }
@@ -1149,85 +1117,36 @@ fn parse_raw_transaction(raw_tx: &str) -> (String, u64) {
         }
     }
     
-    // If we still couldn't find a value, try to extract it from the raw transaction data
-    // This is a more targeted approach for MetaMask transactions
-    if value_wei == 0 && raw_tx.len() > 50 {
-        // In MetaMask transactions, the value is often encoded after the "to" address
-        // The pattern is often: 0x94 (address marker) + address (20 bytes) + 0x89 (value marker) + value
-        if let Some(addr_marker) = raw_tx.find("94") {
-            let addr_end = addr_marker + 2 + 40; // 2 for "94" and 40 for address (20 bytes in hex)
-            if addr_end + 20 <= raw_tx.len() {
-                // Look for value marker (0x89, 0x88, etc.) after the address
-                for i in addr_end..addr_end.saturating_add(10).min(raw_tx.len()) {
-                    if i + 2 <= raw_tx.len() {
-                        let marker = &raw_tx[i..i+2];
-                        if marker == "89" || marker == "88" || marker == "87" {
-                            // Found a potential value marker, try to extract the value
-                            let value_start = i + 2;
-                            if value_start + 16 <= raw_tx.len() {
-                                let value_hex = &raw_tx[value_start..value_start+16];
-                                if let Ok(value) = u64::from_str_radix(value_hex, 16) {
-                                    value_wei = value;
-                                    log::info!("Found value using marker approach: {} wei", value_wei);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    // If we couldn't find a value, default to 0
+    if value_wei.is_zero() {
+        log::info!("Could not determine value from transaction, defaulting to 0 UBI tokens");
+        return (from, 0);
     }
     
-    // If we still couldn't find a value, try one more approach
-    // Look for the specific pattern in the raw transaction that might represent the value
-    if value_wei == 0 {
-        // For MetaMask transactions sending ETH, there's often a pattern like:
-        // 0x89 + value (in hex) near the middle of the transaction
-        let raw_tx_lower = raw_tx.to_lowercase();
-        if let Some(_pos) = raw_tx_lower.find("890238fd42c5cf04000") {
-            // This pattern appears to be the value for 41 ETH in the transaction you provided
-            // Instead of calculating, directly set the value to avoid overflow
-            // We'll set the wei value to a value that will convert to 41 UBI tokens
-            value_wei = 41; // Simplified to avoid overflow
-            log::info!("Found hardcoded value pattern for 41 ETH, setting value to 41 UBI tokens");
-        }
-    }
-    
-    // If all else fails, use a fallback approach
-    if value_wei == 0 {
-        // Look for byte sequences that might represent a value
-        for i in 0..tx_bytes.len().saturating_sub(8) {
-            if let Ok(value) = u64::from_str_radix(&hex::encode(&tx_bytes[i..i+8]), 16) {
-                // Check if the value is reasonable
-                if value > 0 {
-                    value_wei = value;
-                    log::info!("Found potential value using fallback method: {} wei", value_wei);
-                    break;
-                }
-            }
-        }
-    }
-    
-    // If we still couldn't find a value, default to 1 UBI token
-    if value_wei == 0 {
-        log::info!("Could not determine value from transaction, defaulting to 1 UBI token");
-        return (from, 1);
-    }
-    
-    // Convert wei to UBI tokens (assuming 1 UBI = 10^18 wei)
-    // Avoid overflow by using a simpler approach
-    let value_ubi = if value_wei > 1_000_000_000_000_000_000u64 {
-        // If the value is very large, it's likely already in UBI tokens
-        value_wei / 1_000_000_000_000_000_000u64
-    } else if value_wei > 0 {
-        // For smaller values, ensure at least 1 token
-        1
-    } else {
+    // Convert wei to UBI tokens (1 UBI = 10^18 wei)
+    let wei_factor = primitive_types::U256::exp10(18);
+    let value_ubi = if value_wei.is_zero() {
         0
+    } else {
+        // Convert wei to UBI tokens by dividing by 10^18
+        match value_wei.checked_div(wei_factor) {
+            Some(ubi) => {
+                if ubi > primitive_types::U256::from(u64::MAX) {
+                    log::warn!("Value too large, capping at u64::MAX: {}", ubi);
+                    u64::MAX
+                } else {
+                    ubi.as_u64()
+                }
+            },
+            None => {
+                log::error!("Division error when converting wei to UBI");
+                0
+            }
+        }
     };
     
-    log::info!("Extracted transaction details - From: {}, To: {}, Value: {} wei ({} UBI)", from, to, value_wei, value_ubi);
+    log::info!("Extracted transaction details - From: {}, To: {}, Value: {} wei ({} UBI)", 
+              from, to, value_wei, value_ubi);
     
     (from, value_ubi)
 }
